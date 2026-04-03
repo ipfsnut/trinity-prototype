@@ -40,6 +40,18 @@ export default function Home() {
             <p className="text-sm text-[#8892a4]">
               Three curves. 1% fee. Every sell burns.
             </p>
+            <div className="mt-2 flex items-center gap-2 text-xs text-[#8892a4] bg-[#0d1117] rounded-lg px-3 py-2 border border-[#0f3460]">
+              <span>TRI:</span>
+              <code className="text-[#4ecca3] font-mono">0xB08af7FC1C44aa966E2bB1f817C42d51fC0AbD1F</code>
+              <a
+                href="https://basescan.org/token/0xB08af7FC1C44aa966E2bB1f817C42d51fC0AbD1F"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#4e9af0] hover:underline ml-auto"
+              >
+                Basescan
+              </a>
+            </div>
           </div>
           <div className="bg-[#16213e] rounded-xl p-5 border border-[#0f3460]">
             <TradePanel />
