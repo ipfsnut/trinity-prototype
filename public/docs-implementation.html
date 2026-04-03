@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trinity: Implementation Evaluation</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #0f3460;
+    --text: #e0e0e0;
+    --muted: #8892a4;
+    --accent: #e94560;
+    --green: #4ecca3;
+    --yellow: #f0c040;
+    --code-bg: #0d1117;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 60px 40px;
+  }
+  h1 {
+    font-size: 2.2em;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 16px;
+  }
+  h2 {
+    font-size: 1.5em;
+    font-weight: 600;
+    color: #fff;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 1.15em;
+    font-weight: 600;
+    color: var(--green);
+    margin-top: 28px;
+    margin-bottom: 10px;
+  }
+  h4 {
+    font-size: 1em;
+    font-weight: 600;
+    color: var(--yellow);
+    margin-top: 20px;
+    margin-bottom: 8px;
+  }
+  p { margin-bottom: 4px; }
+  strong { color: #fff; font-weight: 600; }
+  em { color: var(--green); font-style: italic; }
+  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px;
+    overflow-x: auto;
+    margin: 14px 0;
+    font-size: 0.84em;
+    line-height: 1.5;
+  }
+  pre code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    color: #c9d1d9;
+  }
+  code.inline {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 0.86em;
+    color: var(--accent);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 14px 0;
+    font-size: 0.9em;
+  }
+  th {
+    background: var(--surface);
+    color: var(--green);
+    font-weight: 600;
+    text-align: left;
+    padding: 9px 12px;
+    border-bottom: 2px solid var(--border);
+  }
+  td {
+    padding: 7px 12px;
+    border-bottom: 1px solid rgba(15,52,96,0.5);
+    vertical-align: top;
+  }
+  tr:hover td { background: rgba(22,33,62,0.5); }
+  .list-item { padding: 3px 0 3px 8px; }
+  br { display: block; content: ""; margin: 3px 0; }
+  @media (max-width: 600px) {
+    .container { padding: 24px 16px; }
+    h1 { font-size: 1.6em; }
+    table { font-size: 0.8em; }
+    pre { padding: 10px; font-size: 0.76em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Trinity: Implementation Evaluation</h1>
+<br>
+<h2>What We're Building</h2>
+<br>
+<h3>Contracts (Solidity, Foundry)</h3>
+<br>
+<div class="list-item">1. <strong>TrinityToken.sol</strong> — Standard ERC-20, 1B supply, non-upgradeable. Mints entire supply to deployer (Safe) on construction. Nothing custom — OpenZeppelin ERC20 only.</div>
+<br>
+<div class="list-item">2. <strong>TrinityBondingCurve.sol</strong> — One contract deployed three times with different config:</div>
+<div class="list-item" style="margin-left:30px">&#8226; Constructor params: <code class="inline">(trinityToken, quoteAsset, basePrice, slope, feeRecipient)</code></div>
+<div class="list-item" style="margin-left:30px">&#8226; <code class="inline">buy(uint256 quoteAmount)</code> — user sends quote asset, receives TRINITY</div>
+<div class="list-item" style="margin-left:30px">&#8226; <code class="inline">sell(uint256 trinityAmount)</code> — user sends TRINITY, receives quote asset, 1% burned</div>
+<div class="list-item" style="margin-left:30px">&#8226; <code class="inline">currentPrice()</code> — spot price view</div>
+<div class="list-item" style="margin-left:30px">&#8226; <code class="inline">quoteTokensOut(uint256 quoteIn)</code> — preview buy</div>
+<div class="list-item" style="margin-left:30px">&#8226; <code class="inline">quoteAssetOut(uint256 trinityIn)</code> — preview sell</div>
+<div class="list-item" style="margin-left:30px">&#8226; <code class="inline">totalSold</code>, <code class="inline">totalBurned</code> — public counters</div>
+<div class="list-item" style="margin-left:30px">&#8226; Ownable (Safe), no withdraw, no pause (prototype)</div>
+<br>
+<div class="list-item">3. <strong>TrinityGauge.sol</strong> — RewardGauge for ETH staking rewards. Can reuse the existing <code class="inline">RewardGauge</code> contract pattern from <code class="inline">packages/contracts/src/RewardGauge.sol</code> — it already handles ERC-20 staking with periodic reward distribution.</div>
+<br>
+<h3>Frontend (Next.js, within ArbMe or standalone)</h3>
+<br>
+<div class="list-item" style="margin-left:0px">&#8226; Trade page: pool selector (USDC / ETH / CHAOSLP), buy/sell form, price chart</div>
+<div class="list-item" style="margin-left:0px">&#8226; Dashboard: burn counter, total volume, reserve balances, current prices across all pools</div>
+<div class="list-item" style="margin-left:0px">&#8226; Staking page: stake TRINITY → earn ETH rewards (reuse existing staking UI pattern from chaos-theory)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Existing infrastructure: wagmi, RainbowKit, Safe detection, viem — all already in place</div>
+<br>
+<h3>Gnosis Safe</h3>
+<br>
+<div class="list-item" style="margin-left:0px">&#8226; Deploy all contracts from the Rails Multisig (<code class="inline">0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0</code>)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Pattern already established: deploy via EOA with Foundry → <code class="inline">transferOwnership(MULTISIG)</code></div>
+<div class="list-item" style="margin-left:0px">&#8226; Safe receives USDC buy fees directly (no intermediary)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Safe holds 100M treasury TRINITY (unfenced — prototype; LPs, partnerships)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Existing Safe Apps SDK integration in ArbMe frontend can be reused</div>
+<br>
+<hr>
+<br>
+<h2>Critical Technical Issues</h2>
+<br>
+<h3>1. Bonding Curve Math — Linear Curve (RESOLVED)</h3>
+<br>
+<p>A quadratic curve <code class="inline">price(s) = BASE + SLOPE * s²</code> would require computing s³ for the cost integral, which overflows uint256 at 334M tokens in wei. <strong>We chose a linear curve instead:</strong></p>
+<br>
+<pre><code class="">
+price(s) = BASE_PRICE + SLOPE * s
+cost(s₁ → s₂) = BASE_PRICE * (s₂ - s₁) + SLOPE * (s₂² - s₁²) / 2
+</code></pre>
+<br>
+<p>At s = 334M in wei (3.34 * 10²⁶): s² = 1.12 * 10⁵³ — comfortably fits uint256 (max 1.16 * 10⁷⁷). No overflow risk.</p>
+<br>
+<p>Linear is the simplest, safest option. It still gives early buyers a better price (100× range from floor to terminal), and the flat slope creates tight arb bands for high-frequency cross-pool correction. The 1.5× steeper USDC slope provides enough mid-curve price movement (~1.5% per $1K trade at 10% sold) to drive arb volume without scaring off retail.</p>
+<br>
+<h3>2. USDC 6-Decimal Precision (KNOWN ISSUE)</h3>
+<br>
+<p>This already bit us — the USDC gauge was dropped from ChaosLP V2 because 6-decimal rounding made small reward distributions unviable. The bonding curve faces the same class of problem.</p>
+<br>
+<p><strong>Where it hits:</strong></p>
+<br>
+<table><thead><tr>
+<th>Scenario</th>
+<th>TRINITY Price</th>
+<th>USDC Amount (6 dec)</th>
+<th>Precision</th>
+</tr></thead><tbody>
+<tr>
+<td>Buy 1,000 TRINITY at $0.01</td>
+<td>$0.01</td>
+<td>10,000,000 (10 USDC)</td>
+<td>Fine</td>
+</tr>
+<tr>
+<td>Buy 100 TRINITY at $0.001</td>
+<td>$0.001</td>
+<td>100,000 (0.1 USDC)</td>
+<td>Fine</td>
+</tr>
+<tr>
+<td>Buy 1 TRINITY at $0.0001</td>
+<td>$0.0001</td>
+<td>100 (0.0001 USDC)</td>
+<td>Tight</td>
+</tr>
+<tr>
+<td>Buy 0.01 TRINITY at $0.0001</td>
+<td>$0.000001</td>
+<td>1</td>
+<td>Minimum unit</td>
+</tr>
+<tr>
+<td>Buy 0.001 TRINITY at $0.0001</td>
+<td>$0.0000001</td>
+<td>0 — ROUNDS TO ZERO</td>
+<td>Broken</td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>Mitigations:</strong></p>
+<div class="list-item">1. <strong>Enforce minimum trade size</strong> — e.g., 100 TRINITY minimum per buy. At even $0.0001/TRINITY that's $0.01 = 10,000 USDC units. Plenty of precision.</div>
+<div class="list-item">2. <strong>Scale curve math internally to 18 decimals</strong> — do all math in 18-decimal precision, convert to 6-decimal USDC only at the transfer boundary. This is how the existing swap.ts handles it (decimal adjustment multiplier).</div>
+<div class="list-item">3. <strong>Round in protocol's favor</strong> — always <code class="inline">floor()</code> on outputs to user, <code class="inline">ceil()</code> on inputs from user.</div>
+<br>
+<p><strong>The USDC pool will work fine as long as we enforce a minimum trade size and do internal math at 18-decimal precision.</strong> The gauge rounding issue was different — it was dividing tiny reward streams across many stakers, losing precision at each division. The bonding curve deals with individual trades, which are larger discrete amounts.</p>
+<br>
+<h3>3. MEV / Sandwich Attack Surface (MEDIUM RISK)</h3>
+<br>
+<p>Bonding curves are deterministic — an attacker can predict exact output for any input. Sandwich attack flow:</p>
+<br>
+<pre><code class="">
+1. Attacker sees victim's buy(1000 USDC) in mempool
+2. Attacker frontruns: buy(5000 USDC) — pushes price up
+3. Victim's buy executes at inflated price
+4. Attacker backruns: sell(tokens) — pockets difference minus fees
+</code></pre>
+<br>
+<p><strong>Natural protections we already have:</strong></p>
+<div class="list-item" style="margin-left:0px">&#8226; 1% fee on each leg = 2% round-trip cost for attacker</div>
+<div class="list-item" style="margin-left:0px">&#8226; Sell burns 1% of TRINITY — attacker loses tokens</div>
+<div class="list-item" style="margin-left:0px">&#8226; Total attacker cost: ~3% of position. Sandwich only profitable if victim's trade moves price >3%.</div>
+<br>
+<p><strong>Additional protections to implement:</strong></p>
+<div class="list-item">1. <strong>Slippage parameter on buy/sell</strong> — <code class="inline">maxPrice</code> on buys, <code class="inline">minOutput</code> on sells. Already standard in our swap.ts pattern.</div>
+<div class="list-item">2. <strong>Block-based rate limiting</strong> — optional: cap max trade size per block to limit single-block manipulation. Adds gas overhead though.</div>
+<div class="list-item">3. <strong>Private submission</strong> — document that users can submit via Flashbots Protect RPC to bypass public mempool. This is a frontend config, not a contract change.</div>
+<br>
+<p><strong>Assessment:</strong> The 1% fee + burn makes sandwiching expensive enough that it's only viable on very large trades (>$50K+). Slippage parameters handle the rest. No exotic MEV protection needed.</p>
+<br>
+<h3>4. Reserve Solvency Invariant (MUST PROVE)</h3>
+<br>
+<p>The curve must always have enough quote asset to honor all possible sells. Let's trace the math:</p>
+<br>
+<p><strong>Buy flow:</strong></p>
+<pre><code class="">
+User sends Q quote asset
+Fee: Q * 1% = 0.01Q → sent to channel
+Curve receives: 0.99Q
+Curve issues: T tokens (calculated by integrating curve from totalSold to totalSold + T)
+The integral guarantees: 0.99Q = ∫ price(s) ds from totalSold to totalSold + T
+</code></pre>
+<br>
+<p><strong>Sell flow:</strong></p>
+<pre><code class="">
+User sends T tokens
+Burn: T * 1% = 0.01T → burned
+Curve takes back: 0.99T tokens
+Curve pays: ∫ price(s) ds from (totalSold - 0.99T) to totalSold
+totalSold decreases by 0.99T
+</code></pre>
+<br>
+<p><strong>Solvency proof (simplified):</strong></p>
+<div class="list-item" style="margin-left:0px">&#8226; On buy: curve gains 0.99Q quote assets and issues T tokens. Reserve += 0.99Q.</div>
+<div class="list-item" style="margin-left:0px">&#8226; On sell: curve pays out integral for 0.99T tokens. But the original buy paid for T tokens worth of curve. The sell only claims 0.99T tokens worth — strictly less.</div>
+<div class="list-item" style="margin-left:0px">&#8226; Additionally, the buy fee was already extracted (only 0.99Q entered the reserve), so the sell payout is computed from the same curve the buy was computed from — the integrals match.</div>
+<div class="list-item" style="margin-left:0px">&#8226; <strong>Burns make this better over time</strong>: burned tokens were "sold" but can never be "returned." The quote assets that backed those tokens remain in the reserve permanently. The curve becomes over-collateralized.</div>
+<br>
+<p><strong>Edge case: first buyer, immediate sell:</strong></p>
+<pre><code class="">
+Buy 10,000 TRINITY for X USDC (1% fee extracted, 0.99X enters reserve)
+Immediately sell 10,000 TRINITY (1% burn = 100 TRINITY burned, 9,900 returned)
+Curve pays out integral for 9,900 TRINITY ≤ integral for 10,000 TRINITY = 0.99X
+Reserve after: 0.99X - payout for 9,900 ≥ 0 ✓
+</code></pre>
+<br>
+<p><strong>This is solvent by construction.</strong> The 1% buy fee does NOT create insolvency because the curve only issues tokens proportional to the 99% that entered the reserve. The sell payout is computed from the same curve. Formal verification in tests is still recommended.</p>
+<br>
+<h3>5. Curve Parameter Selection (V2 — RESOLVED)</h3>
+<br>
+<p>Linear curve: <code class="inline">price(s) = BASE_PRICE + SLOPE * s</code>. Three pools with <strong>differentiated slopes and supply</strong>. 90% of supply locked in curves, 10% treasury.</p>
+<br>
+<h4>USDC Pool (1.5&times; slope, 334M supply)</h4>
+<table><thead><tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr><td>BASE_PRICE</td><td>0.0001 USDC</td><td>Floor price (~$0.0001 per TRINITY)</td></tr>
+<tr><td>SLOPE</td><td>4.95 &times; 10⁻¹¹ USDC/token</td><td>1.5&times; steeper than baseline</td></tr>
+<tr><td>Price at 0% sold</td><td>$0.0001</td><td>Early buyer price</td></tr>
+<tr><td>Price at 10% sold (33.4M)</td><td>$0.00175</td><td>Early action zone (~1.5% impact per $1K)</td></tr>
+<tr><td>Price at 50% sold (167M)</td><td>$0.00837</td><td>Mid-curve price</td></tr>
+<tr><td>Price at 100% sold (334M)</td><td>$0.01663</td><td>Fully sold price</td></tr>
+<tr><td>Total cost to buy all 334M</td><td>$2,794,400</td><td></td></tr>
+</tbody></table>
+<br>
+<h4>ETH Pool (baseline slope, 333M supply)</h4>
+<table><thead><tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr><td>BASE_PRICE</td><td>4.85 &times; 10⁻⁸ WETH</td><td>Floor price (~$0.0001 at ETH=$2,062)</td></tr>
+<tr><td>SLOPE</td><td>1.6 &times; 10⁻¹⁴ WETH/token</td><td>Baseline slope</td></tr>
+<tr><td>Price at 0% sold</td><td>$0.0001</td><td>Early buyer price</td></tr>
+<tr><td>Price at 50% sold (166.5M)</td><td>$0.00560</td><td>Mid-curve price</td></tr>
+<tr><td>Price at 100% sold (333M)</td><td>$0.01109</td><td>Fully sold price</td></tr>
+<tr><td>Total cost to buy all 333M</td><td>$1,863,000</td><td></td></tr>
+</tbody></table>
+<br>
+<h4>$CHAOSLP Pool (baseline slope, 233M supply — shorter)</h4>
+<table><thead><tr>
+<th>Parameter</th>
+<th>Value</th>
+<th>Meaning</th>
+</tr></thead><tbody>
+<tr><td>BASE_PRICE</td><td>3,889.77 CLP</td><td>Floor price (~$0.0001 at CLP=$0.0000000257)</td></tr>
+<tr><td>SLOPE</td><td>1.28 &times; 10⁻³ CLP/token</td><td>Same USD-equivalent slope as ETH</td></tr>
+<tr><td>Price at 0% sold</td><td>$0.0001</td><td>Early buyer price</td></tr>
+<tr><td>Price at 50% sold (116.5M)</td><td>$0.00394</td><td>Mid-curve price</td></tr>
+<tr><td>Price at 100% sold (233M)</td><td>$0.00779</td><td>Fully sold price (shorter curve)</td></tr>
+<tr><td>Total cost to buy all 233M</td><td>$919,100</td><td></td></tr>
+</tbody></table>
+<br>
+<p><strong>Market cap projections:</strong></p>
+<div class="list-item" style="margin-left:0px">&#8226; At 50% sold across all pools (~450M circulating): ~$0.006 avg &times; 450M = <strong>~$2.7M market cap</strong></div>
+<div class="list-item" style="margin-left:0px">&#8226; Total cost to buy out all curves: <strong>$5,576,500</strong></div>
+<br>
+<p><strong>Why differentiated:</strong> The steeper USDC slope makes it the "premium" venue — arbers consistently buy ETH/$CHAOSLP and sell USDC, which means ETH fees flow to the gauge and $CHAOSLP fees flow to Chaos staking while sells on USDC burn TRI. The shorter $CHAOSLP pool caps exposure to the most volatile quote asset and sells through first.</p>
+<br>
+<h3>Contract Deployment Parameters</h3>
+<br>
+<p>All values are Solidity-ready. Contract uses 18-decimal (WAD) fixed-point math internally: <code class="inline">price = basePrice + slope * totalSold / 1e18</code>.</p>
+<br>
+<h4>Token Addresses (Base Mainnet)</h4>
+<table><thead><tr>
+<th>Token</th>
+<th>Address</th>
+<th>Decimals</th>
+</tr></thead><tbody>
+<tr><td>USDC</td><td><code class="inline">0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913</code></td><td>6</td></tr>
+<tr><td>WETH</td><td><code class="inline">0x4200000000000000000000000000000000000006</code></td><td>18</td></tr>
+<tr><td>$CHAOSLP</td><td><code class="inline">0x8454d062506a27675706148ecdd194e45e44067a</code></td><td>18</td></tr>
+<tr><td>Multisig</td><td><code class="inline">0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0</code></td><td>&mdash;</td></tr>
+</tbody></table>
+<br>
+<h4>TrinityBondingCurve Constructor</h4>
+<p><code class="inline">(trinityToken, quoteAsset, basePrice, slope, feeRecipient, quoteDecimals)</code></p>
+<br>
+<pre><code class="">USDC Pool:
+  quoteAsset:    0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913
+  basePrice:     100000000000000            (1e14   = 0.0001 USDC in WAD)
+  slope:         49500000                   (4.95e7 = 4.95e-11 * 1e18)
+  feeRecipient:  0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0  (Multisig)
+  quoteDecimals: 6
+  depositAmount: 334000000000000000000000000  (334M * 1e18)
+
+ETH Pool:
+  quoteAsset:    0x4200000000000000000000000000000000000006
+  basePrice:     48500000000                (4.85e10 = 4.85e-8 WETH in WAD)
+  slope:         16000                      (1.6e4   = 1.6e-14 * 1e18)
+  feeRecipient:  &lt;GAUGE_ADDRESS&gt;            (TrinityGauge — deployed in step 2)
+  quoteDecimals: 18
+  depositAmount: 333000000000000000000000000  (333M * 1e18)
+
+$CHAOSLP Pool:
+  quoteAsset:    0x8454d062506a27675706148ecdd194e45e44067a
+  basePrice:     3889770000000000000000     (3.89e21 = 3889.77 CLP in WAD)
+  slope:         1280000000000000           (1.28e15 = 1.28e-3 * 1e18)
+  feeRecipient:  &lt;CHAOS_REWARDS_ADDRESS&gt;    (Chaos Rewards multisig)
+  quoteDecimals: 18
+  depositAmount: 233000000000000000000000000  (233M * 1e18)
+</code></pre>
+<br>
+<p><strong>Verification:</strong> At terminal supply, <code class="inline">basePrice + slope * depositAmount / 1e18</code> must equal expected terminal price in WAD. Checked for all three pools.</p>
+<br>
+<hr>
+<br>
+<h2>Implementation Plan</h2>
+<br>
+<h3>Phase 1: Contracts</h3>
+<br>
+<pre><code class="">
+1. TrinityToken.sol
+   - Standard OZ ERC20
+   - Constructor mints 1B to msg.sender
+   - No mint/burn/pause functions (immutable supply, burns use transfer to 0xdead)
+
+2. TrinityBondingCurve.sol
+   - Constructor(trinity, quoteAsset, basePrice, slope, feeRecipient, decimals)
+   - buy(uint256 quoteAmount, uint256 minTokensOut)  ← slippage protection
+   - sell(uint256 trinityAmount, uint256 minQuoteOut)  ← slippage protection
+   - No pause mechanism (prototype — wind down manually if needed)
+   - Internal math at 18-decimal precision, convert at transfer boundary
+   - ReentrancyGuard on buy and sell
+   - Events: Buy, Sell, Burn
+
+3. TrinityGauge.sol
+   - Fork existing RewardGauge pattern
+   - Stake TRINITY → earn ETH (from ETH pool buy fees)
+   - 180-day reward periods (consistent with existing gauge infra)
+
+4. Test suite (Foundry)
+   - Solvency invariant fuzzing
+   - Mixed-decimal precision tests (USDC 6-dec vs TRINITY 18-dec)
+   - Overflow boundary tests at 300M and 200M supply per pool
+   - Buy→sell round-trip loss verification
+   - Burn accounting accuracy
+   - Slippage revert tests
+</code></pre>
+<br>
+<h3>Phase 2: Deployment (via Safe)</h3>
+<br>
+<pre><code class="">
+1. Deploy TrinityToken (EOA) → transfer 1B TRINITY to Safe
+2. Deploy TrinityBondingCurve × 3 (EOA) → transferOwnership to Safe
+3. Safe batch transaction:
+   a. Approve 334M TRINITY to USDC curve
+   b. Approve 333M TRINITY to ETH curve
+   c. Approve 233M TRINITY to CHAOSLP curve
+   d. Call deposit() on each curve (334M / 333M / 233M)
+   e. Retain 100M TRINITY in Safe treasury (LPs, partnerships)
+4. Deploy TrinityGauge (EOA) → transferOwnership to Safe
+5. Verify all contracts on Basescan
+6. Trading opens
+</code></pre>
+<br>
+<p>Follows the exact pattern in <code class="inline">packages/contracts/script/DeployChaosLP.s.sol</code> — deploy with EOA private key, optionally transfer ownership via <code class="inline">TRANSFER_OWNERSHIP</code> env flag.</p>
+<br>
+<h3>Phase 3: Frontend</h3>
+<br>
+<pre><code class="">
+1. Trade page
+   - Pool selector tabs: USDC | ETH | CHAOSLP
+   - Buy/sell form with quote preview (calls quoteTokensOut/quoteAssetOut)
+   - Slippage setting (default 1%)
+   - Price chart per pool (read totalSold, compute price curve)
+   - Safe detection (reuse WalletProvider.tsx isSafe pattern)
+
+2. Dashboard
+   - Burn counter (totalBurned from each pool, aggregated)
+   - Reserve health (quote asset balance vs curve liability)
+   - Cross-pool price comparison
+   - Volume tracker
+
+3. Staking page
+   - Stake TRINITY → earn ETH
+   - Reuse chaos-theory/app/stake/page.tsx pattern
+   - Same gauge ABI, same claim flow
+</code></pre>
+<br>
+<h3>Phase 4: Non-Curve Additional Pairs</h3>
+<br>
+<p>Once the three bonding curves are live, additional TRINITY pairs can be created on Uniswap V3/V4 permissionlessly:</p>
+<br>
+<div class="list-item" style="margin-left:0px">&#8226; TRINITY/CLANKER, TRINITY/FLAY, TRINITY/VIRTUAL, etc.</div>
+<div class="list-item" style="margin-left:0px">&#8226; These are standard Uniswap pools — no custom contracts</div>
+<div class="list-item" style="margin-left:0px">&#8226; Pool creation already supported via core-lib <code class="inline">buildCreatePoolTransaction()</code></div>
+<div class="list-item" style="margin-left:0px">&#8226; Each new pair = new arb surface back to the bonding curves</div>
+<div class="list-item" style="margin-left:0px">&#8226; Volume on these pairs generates Uniswap LP fees (separate from Trinity fees)</div>
+<div class="list-item" style="margin-left:0px">&#8226; The bonding curves remain the "canonical" price — external pools arb against them</div>
+<br>
+<hr>
+<br>
+<h2>Known Issues & Mitigations Summary</h2>
+<br>
+<table><thead><tr>
+<th>Issue</th>
+<th>Severity</th>
+<th>Status</th>
+<th>Mitigation</th>
+</tr></thead><tbody>
+<tr>
+<td>Cubic overflow in quadratic curve</td>
+<td><strong>Blocker</strong></td>
+<td>Use linear curve instead</td>
+<td>s&sup2; fits uint256 at 300M/200M supply. No overflow.</td>
+</tr>
+<tr>
+<td>USDC 6-decimal rounding</td>
+<td><strong>High</strong></td>
+<td>Known from gauge experience</td>
+<td>Internal 18-dec math + minimum trade size + round in protocol's favor</td>
+</tr>
+<tr>
+<td>MEV/sandwich on curves</td>
+<td><strong>Medium</strong></td>
+<td>Manageable</td>
+<td>1% fee + burn = ~3% attacker cost. Slippage params. Flashbots Protect RPC.</td>
+</tr>
+<tr>
+<td>Reserve insolvency</td>
+<td><strong>Critical</strong></td>
+<td>Solvent by construction</td>
+<td>Fees extracted before curve math. Burns make it over-collateralized. Fuzz test.</td>
+</tr>
+<tr>
+<td>Cross-pool price divergence</td>
+<td><strong>Low</strong></td>
+<td>By design &mdash; amplified in V2</td>
+<td>USDC always most expensive (1.5&times; slope). Arbers buy ETH/$CHAOSLP, sell USDC.</td>
+</tr>
+<tr>
+<td>Treasury dump (100M unfenced)</td>
+<td><strong>Medium</strong></td>
+<td>Accepted (prototype)</td>
+<td>10% of supply in Safe, no vesting. Lower risk at 10% vs prior 20%.</td>
+</tr>
+<tr>
+<td>Curve parameters</td>
+<td><s>Medium</s></td>
+<td><strong>Resolved (V2)</strong></td>
+<td>USDC 1.5&times; slope, ETH baseline, $CHAOSLP 200M shorter. See Trinity-Curves.html.</td>
+</tr>
+<tr>
+<td>Pause behavior</td>
+<td><strong>Low</strong></td>
+<td>Skipped (prototype)</td>
+<td>No pause mechanism. Manual wind-down if needed.</td>
+</tr>
+</tbody></table>
+<br>
+<hr>
+<br>
+<h2>Dependencies & Tooling</h2>
+<br>
+<p><strong>Contracts:</strong></p>
+<div class="list-item" style="margin-left:0px">&#8226; OpenZeppelin Contracts (already in packages/contracts) — ERC20, Ownable, ReentrancyGuard</div>
+<div class="list-item" style="margin-left:0px">&#8226; Foundry (already configured) — forge build, test, deploy scripts</div>
+<div class="list-item" style="margin-left:0px">&#8226; No new dependencies needed</div>
+<br>
+<p><strong>Frontend:</strong></p>
+<div class="list-item" style="margin-left:0px">&#8226; viem, wagmi, RainbowKit (already in packages/nextjs)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Safe Apps SDK (already in packages/nextjs)</div>
+<div class="list-item" style="margin-left:0px">&#8226; No new dependencies needed</div>
+<br>
+<p><strong>Deployment:</strong></p>
+<div class="list-item" style="margin-left:0px">&#8226; Foundry scripts (existing pattern)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Safe multisig (existing)</div>
+<div class="list-item" style="margin-left:0px">&#8226; Basescan verification (existing workflow)</div>
+<br>
+<p><strong>No new packages required.</strong> Everything builds on existing infrastructure.</p>
+<br>
+</div>
+</body>
+</html>

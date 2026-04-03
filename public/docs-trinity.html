@@ -1,0 +1,818 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trinity: Multi-Pool Bonding Curve Protocol</title>
+<style>
+  :root {
+    --bg: #1a1a2e;
+    --surface: #16213e;
+    --border: #0f3460;
+    --text: #e0e0e0;
+    --muted: #8892a4;
+    --accent: #e94560;
+    --accent2: #533483;
+    --green: #4ecca3;
+    --code-bg: #0d1117;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding: 0;
+  }
+  .container {
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 60px 40px;
+  }
+  h1 {
+    font-size: 2.4em;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 8px;
+    letter-spacing: -0.02em;
+    border-bottom: 3px solid var(--accent);
+    padding-bottom: 16px;
+  }
+  h2 {
+    font-size: 1.6em;
+    font-weight: 600;
+    color: #fff;
+    margin-top: 48px;
+    margin-bottom: 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  h3 {
+    font-size: 1.2em;
+    font-weight: 600;
+    color: var(--green);
+    margin-top: 32px;
+    margin-bottom: 12px;
+  }
+  h4 {
+    font-size: 1.05em;
+    font-weight: 600;
+    color: var(--muted);
+    margin-top: 24px;
+    margin-bottom: 8px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+  p {
+    margin-bottom: 4px;
+    color: var(--text);
+  }
+  strong {
+    color: #fff;
+    font-weight: 600;
+  }
+  em {
+    color: var(--green);
+    font-style: italic;
+  }
+  hr {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 40px 0;
+  }
+  pre {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    overflow-x: auto;
+    margin: 16px 0;
+    font-size: 0.85em;
+    line-height: 1.5;
+  }
+  pre code {
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    color: #c9d1d9;
+  }
+  code.inline {
+    background: var(--code-bg);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 6px;
+    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
+    font-size: 0.88em;
+    color: var(--accent);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 16px 0;
+    font-size: 0.92em;
+  }
+  th {
+    background: var(--surface);
+    color: var(--green);
+    font-weight: 600;
+    text-align: left;
+    padding: 10px 14px;
+    border-bottom: 2px solid var(--border);
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px 14px;
+    border-bottom: 1px solid rgba(15, 52, 96, 0.5);
+    vertical-align: top;
+  }
+  tr:hover td {
+    background: rgba(22, 33, 62, 0.5);
+  }
+  .list-item {
+    padding: 3px 0 3px 8px;
+    color: var(--text);
+  }
+  .checkbox {
+    padding: 6px 12px;
+    margin: 4px 0;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--muted);
+  }
+  br { display: block; content: ""; margin: 4px 0; }
+  @media (max-width: 600px) {
+    .container { padding: 24px 16px; }
+    h1 { font-size: 1.8em; }
+    table { font-size: 0.82em; }
+    pre { padding: 12px; font-size: 0.78em; }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+<h1>Trinity: Multi-Pool Bonding Curve Protocol</h1>
+<br>
+<h2>Overview</h2>
+<br>
+<p>Trinity is a bonding curve protocol that distributes a token's supply across three independent liquidity pools, each denominated in a different quote asset. The design provides diversified, resilient liquidity with a flat curve and low fees optimized for arb-driven volume.</p>
+<br>
+<p>The protocol is deployed and governed by a multisig. Trading fees are asymmetric: buy-side fees are collected in the quote asset and sent directly to their designated channel, sell-side fees are collected in $TRINITY and burned — making every sell deflationary.</p>
+<br>
+<hr>
+<br>
+<h2>Architecture</h2>
+<br>
+<h3>Token: $TRINITY</h3>
+<br>
+<div class="list-item" style="margin-left:0px">• <strong>Total Supply</strong>: 1,000,000,000 (1B)</div>
+<div class="list-item" style="margin-left:0px">• <strong>Decimals</strong>: 18</div>
+<div class="list-item" style="margin-left:0px">• <strong>Type</strong>: ERC-20 (non-upgradeable, deployed from multisig)</div>
+<br>
+<h3>Supply Distribution</h3>
+<br>
+<table><thead><tr>
+<th>Allocation</th>
+<th>Amount</th>
+<th>%</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td>TRINITY/USDC Pool</td>
+<td>300,000,000</td>
+<td>30%</td>
+<td>Stable liquidity anchor</td>
+</tr>
+<tr>
+<td>TRINITY/ETH Pool</td>
+<td>300,000,000</td>
+<td>30%</td>
+<td>Blue chip liquidity</td>
+</tr>
+<tr>
+<td>TRINITY/CHAOSLP Pool</td>
+<td>300,000,000</td>
+<td>30%</td>
+<td>Community/speculative liquidity</td>
+</tr>
+<tr>
+<td>Treasury (Multisig)</td>
+<td>100,000,000</td>
+<td>10%</td>
+<td>Team, partnerships, reserves</td>
+</tr>
+</tbody></table>
+<br>
+<h3>Pool Architecture</h3>
+<br>
+<p>Three independent bonding curve contracts, each holding 300M $TRINITY:</p>
+<br>
+<pre><code class="">
+                    ┌─────────────────┐
+                    │   MULTISIG      │
+                    │   (deployer +   │
+                    │   USDC fee sink)│
+                    └───────┬─────────┘
+                            │ deploys + receives USDC fees
+            ┌───────────────┼───────────────┐
+            ▼               ▼               ▼
+   ┌────────────────┐ ┌────────────────┐ ┌──────────────────┐
+   │ TRINITY / USDC │ │ TRINITY / ETH  │ │ TRINITY / CHAOSLP│
+   │   300M TRINITY │ │   300M TRINITY │ │   300M TRINITY   │
+   │                │ │                │ │                  │
+   │ Buy  → Multisig│ │ Buy  → Gauge   │ │ Buy  → Chaos     │
+   │ Sell → BURN    │ │ Sell → BURN    │ │ Sell → BURN      │
+   └────────────────┘ └────────────────┘ └──────────────────┘
+</code></pre>
+<br>
+<p>Each pool is fully independent — its own price curve, its own reserve, its own failure domain.</p>
+<br>
+<hr>
+<br>
+<h2>Bonding Curve Mechanics</h2>
+<br>
+<h3>Curve Formula</h3>
+<br>
+<p>Flat polynomial bonding curve:</p>
+<br>
+<pre><code class="">
+price(s) = BASE_PRICE + SLOPE * s^2
+</code></pre>
+<br>
+<p>Where <code class="inline">s</code> = tokens sold from that pool's 300M allocation.</p>
+<br>
+<div class="list-item" style="margin-left:0px">• <strong>BASE_PRICE</strong>: Floor price per pool (denominated in the pool's quote asset)</div>
+<div class="list-item" style="margin-left:0px">• <strong>SLOPE</strong>: Low slope value — keeps the curve flat for smooth price action and tight arb bands</div>
+<div class="list-item" style="margin-left:0px">• Price at 0% sold = BASE_PRICE (cheapest)</div>
+<div class="list-item" style="margin-left:0px">• Price at 100% sold = BASE_PRICE + SLOPE * (300M)^2 (most expensive)</div>
+<br>
+<p>The curve is intentionally flat. Steep curves discourage trading and widen arb bands. A flat curve with low fees creates the conditions for high-frequency arb correction, which is what drives volume and fee revenue in the ArbMe ecosystem.</p>
+<br>
+<h3>Buy / Sell</h3>
+<br>
+<p><strong>Buy</strong>: User sends quote asset (USDC, ETH, or CHAOSLP) → receives $TRINITY at the current curve price. Price advances along the curve.</p>
+<br>
+<p><strong>Sell</strong>: User sends $TRINITY → receives quote asset at the current curve price minus fee. Price retreats along the curve.</p>
+<br>
+<p>Both directions are always available as long as the pool has reserves. This is the core value prop: <strong>guaranteed liquidity at a deterministic price</strong>.</p>
+<br>
+<h3>Pricing Per Pool</h3>
+<br>
+<p>Each pool is priced independently in its own quote asset:</p>
+<br>
+<table><thead><tr>
+<th>Pool</th>
+<th>Quote Asset</th>
+<th>Price Unit</th>
+<th>Character</th>
+</tr></thead><tbody>
+<tr>
+<td>TRINITY/USDC</td>
+<td>USDC (6 decimals)</td>
+<td>$ per TRINITY</td>
+<td>Stable anchor, most predictable</td>
+</tr>
+<tr>
+<td>TRINITY/ETH</td>
+<td>WETH (18 decimals)</td>
+<td>ETH per TRINITY</td>
+<td>Floats with ETH — intended</td>
+</tr>
+<tr>
+<td>TRINITY/CHAOSLP</td>
+<td>CHAOSLP (18 decimals)</td>
+<td>CHAOSLP per TRINITY</td>
+<td>Most speculative, steepest curve</td>
+</tr>
+</tbody></table>
+<br>
+<p>Cross-pool price alignment happens naturally through arbitrage (see Trading Dynamics below).</p>
+<br>
+<hr>
+<br>
+<h2>Fee Structure</h2>
+<br>
+<h3>1% Flat Trading Fee</h3>
+<br>
+<p>Every buy and sell across all three pools incurs a <strong>1% fee</strong>. The fee is collected in whatever the user is spending.</p>
+<br>
+<h3>On Buys (fee collected in quote asset → channel)</h3>
+<br>
+<p>User spends a quote asset to buy $TRINITY. The 1% fee goes <strong>directly to the designated channel</strong>:</p>
+<br>
+<pre><code class="">
+User buys with 1000 USDC:
+  - 10 USDC (1%) → channel
+  - 990 USDC enters the bonding curve reserve
+</code></pre>
+<br>
+<table><thead><tr>
+<th>Pool</th>
+<th>Fee Destination</th>
+<th>Purpose</th>
+</tr></thead><tbody>
+<tr>
+<td>TRINITY/USDC</td>
+<td>Multisig wallet</td>
+<td><strong>Operations</strong> — payroll, infra, legal, marketing</td>
+</tr>
+<tr>
+<td>TRINITY/ETH</td>
+<td>Gauge contract</td>
+<td><strong>Staking rewards</strong> — distributed to $TRINITY stakers</td>
+</tr>
+<tr>
+<td>TRINITY/CHAOSLP</td>
+<td>Chaos Rewards multisig</td>
+<td><strong>Chaos staking</strong> — staked CHAOSLP earns ROI</td>
+</tr>
+</tbody></table>
+<br>
+<h3>On Sells (fee collected in $TRINITY → burned)</h3>
+<br>
+<p>User sells $TRINITY for a quote asset. The 1% fee is taken from the $TRINITY being sold and <strong>sent directly to the burn address</strong>.</p>
+<br>
+<pre><code class="">
+User sells 10,000 TRINITY for ETH:
+  - 100 TRINITY (1%) → 0x000...dead (burned permanently)
+  - 9,900 TRINITY returned to the curve
+  - User receives ETH for the 9,900 TRINITY at curve price
+</code></pre>
+<br>
+<p><strong>Every sell is deflationary. No exceptions. All three pools burn on sells.</strong></p>
+<br>
+<h3>Fee Flow Diagram</h3>
+<br>
+<pre><code class="">
+BUY (user sends quote asset → gets TRINITY):
+  ┌──────────────────────────────────────────────────────┐
+  │ 1% fee in quote asset → 100% to channel              │
+  │     USDC pool:    → Multisig (operations)             │
+  │     ETH pool:     → Gauge (staking rewards)           │
+  │     CHAOSLP pool: → Chaos Rewards (staked)            │
+  └──────────────────────────────────────────────────────┘
+
+SELL (user sends TRINITY → gets quote asset):
+  ┌──────────────────────────────────────────────────────┐
+  │ 1% fee in $TRINITY → 0xdead (BURNED)                  │
+  └──────────────────────────────────────────────────────┘
+</code></pre>
+<br>
+<p>Every fee has a clear, direct destination. No reserves, no buybacks, no intermediary contracts.</p>
+<br>
+<hr>
+<br>
+<h2>Burn Mechanics</h2>
+<br>
+<h3>How Burns Work</h3>
+<br>
+<p>Every sell on every pool burns $TRINITY:</p>
+<br>
+<pre><code class="solidity">
+function sell(uint256 trinityAmount) external nonReentrant {
+    uint256 burnAmount = (trinityAmount * FEE_BPS) / 10000;  // 1%
+    uint256 sellAmount = trinityAmount - burnAmount;
+
+    // Burn the fee
+    trinity.transfer(DEAD_ADDRESS, burnAmount);
+    totalBurned += burnAmount;
+
+    // Execute the sell on the curve with the remaining amount
+    uint256 quoteOut = _calculateSell(sellAmount);
+    totalSold -= sellAmount;
+
+    // Pay the user in quote asset
+    _sendQuoteAsset(msg.sender, quoteOut);
+}
+</code></pre>
+<br>
+<h3>Burn Accounting</h3>
+<br>
+<p>When tokens are burned on sell, they leave the circulating supply but the curve's <code class="inline">totalSold</code> only decreases by the amount returned (not the burned amount). This means:</p>
+<br>
+<div class="list-item" style="margin-left:0px">• The curve retains slightly more quote-asset reserve than <code class="inline">totalSold</code> implies</div>
+<div class="list-item" style="margin-left:0px">• Over time, the curve becomes <strong>over-collateralized</strong> — it holds more reserves than needed</div>
+<div class="list-item" style="margin-left:0px">• This is a natural positive side effect: burns make the curve more solvent, not less</div>
+<br>
+<h3>Deflationary Projections</h3>
+<br>
+<p>Burns are driven by <strong>sell volume</strong>. Assuming sells are ~50% of total volume:</p>
+<br>
+<p><strong>$50K daily total volume ($25K sells/day across all pools):</strong></p>
+<br>
+<table><thead><tr>
+<th>TRINITY Price</th>
+<th>Daily Burn</th>
+<th>Monthly Burn</th>
+<th>Annual Burn</th>
+<th>% of Supply/Year</th>
+</tr></thead><tbody>
+<tr>
+<td>$0.001</td>
+<td>250,000</td>
+<td>7,500,000</td>
+<td>91,250,000</td>
+<td>9.1%</td>
+</tr>
+<tr>
+<td>$0.005</td>
+<td>50,000</td>
+<td>1,500,000</td>
+<td>18,250,000</td>
+<td>1.8%</td>
+</tr>
+<tr>
+<td>$0.01</td>
+<td>25,000</td>
+<td>750,000</td>
+<td>9,125,000</td>
+<td>0.9%</td>
+</tr>
+</tbody></table>
+<br>
+<p><strong>$500K daily total volume ($250K sells/day):</strong></p>
+<br>
+<table><thead><tr>
+<th>TRINITY Price</th>
+<th>Daily Burn</th>
+<th>Monthly Burn</th>
+<th>Annual Burn</th>
+<th>% of Supply/Year</th>
+</tr></thead><tbody>
+<tr>
+<td>$0.001</td>
+<td>2,500,000</td>
+<td>75,000,000</td>
+<td>912,500,000</td>
+<td>91.3%</td>
+</tr>
+<tr>
+<td>$0.005</td>
+<td>500,000</td>
+<td>15,000,000</td>
+<td>182,500,000</td>
+<td>18.3%</td>
+</tr>
+<tr>
+<td>$0.01</td>
+<td>250,000</td>
+<td>7,500,000</td>
+<td>91,250,000</td>
+<td>9.1%</td>
+</tr>
+</tbody></table>
+<br>
+<p>Burns decelerate naturally as price rises — each dollar of sell volume burns fewer tokens at higher prices. The system finds equilibrium.</p>
+<br>
+<hr>
+<br>
+<h2>Trading Dynamics Analysis</h2>
+<br>
+<h3>Why 1% Fees + Flat Curve</h3>
+<br>
+<p>The ArbMe ecosystem thesis: <strong>trading pairs are information surfaces, arb corrects mispricing, and fees compound as structural value.</strong> High fees suppress the arb that makes the system work. Low fees on a flat curve create the conditions for high-frequency arb correction.</p>
+<br>
+<table><thead><tr>
+<th>Fee Rate</th>
+<th>Arb Band</th>
+<th>Effect</th>
+</tr></thead><tbody>
+<tr>
+<td>3%</td>
+<td>~6% divergence before arb triggers</td>
+<td>Wide price gaps, infrequent correction, low volume</td>
+</tr>
+<tr>
+<td>1%</td>
+<td>~2% divergence before arb triggers</td>
+<td>Tight prices, frequent correction, high volume</td>
+</tr>
+</tbody></table>
+<br>
+<p>At 1%, arb triggers <strong>3x more often</strong> than at 3%. Each arb trade:</p>
+<div class="list-item" style="margin-left:0px">• Burns TRINITY on the sell side</div>
+<div class="list-item" style="margin-left:0px">• Sends fees to channels on the buy side</div>
+<div class="list-item" style="margin-left:0px">• Tightens prices across all three pools</div>
+<br>
+<p>The bet: <strong>1% at 10x volume beats 3% at 1x volume.</strong> Lower friction → more trades → more total revenue.</p>
+<br>
+<h3>Arbitrage Between Pools</h3>
+<br>
+<p>Because each pool prices TRINITY independently, price discrepancies will arise. Arbitrageurs correct these:</p>
+<br>
+<pre><code class="">
+Example:
+  USDC pool: TRINITY = $0.0102
+  ETH pool:  TRINITY = $0.0098 (ETH dropped, making this pool cheaper)
+  Spread: ~4% — exceeds 2% arb threshold
+  
+  Arber:
+    1. Buy TRINITY on ETH pool at $0.0098 (pays 1% buy fee in ETH)
+    2. Sell TRINITY on USDC pool at $0.0102 (pays 1% sell fee in TRINITY → burned)
+    3. Nets ~$0.0004/token minus ~2% total fees minus gas
+    
+  Result: ETH pool price rises, USDC pool price falls, prices converge
+</code></pre>
+<br>
+<p>Every arb trade is productive:</p>
+<div class="list-item" style="margin-left:0px">• Burns TRINITY (sell side)</div>
+<div class="list-item" style="margin-left:0px">• Funds channels (buy side)</div>
+<div class="list-item" style="margin-left:0px">• Corrects mispricing (both sides)</div>
+<br>
+<h3>Volume Scenarios (Buy-Side Fee Revenue)</h3>
+<br>
+<p>Assuming $50K daily volume, ~50% buys ($25K buys/day), split equally across pools:</p>
+<br>
+<table><thead><tr>
+<th>Metric</th>
+<th>Daily</th>
+<th>Monthly</th>
+<th>Annually</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>Total Buy Volume</strong></td>
+<td>$25,000</td>
+<td>$750,000</td>
+<td>$9,125,000</td>
+</tr>
+<tr>
+<td><strong>Total Buy Fees (1%)</strong></td>
+<td>$250</td>
+<td>$7,500</td>
+<td>$91,250</td>
+</tr>
+</tbody></table>
+<br>
+<p>Per-channel breakdown:</p>
+<br>
+<table><thead><tr>
+<th>Channel</th>
+<th>Daily</th>
+<th>Monthly</th>
+<th>Annually</th>
+</tr></thead><tbody>
+<tr>
+<td><strong>USDC → Ops (multisig)</strong></td>
+<td>~$83</td>
+<td>~$2,500</td>
+<td>~$30,400</td>
+</tr>
+<tr>
+<td><strong>ETH → Gauge (stakers)</strong></td>
+<td>~$83</td>
+<td>~$2,500</td>
+<td>~$30,400</td>
+</tr>
+<tr>
+<td><strong>CHAOSLP → Chaos staking</strong></td>
+<td>~$83</td>
+<td>~$2,500</td>
+<td>~$30,400</td>
+</tr>
+</tbody></table>
+<br>
+<p>At $500K daily volume (10x), multiply all figures by 10:</p>
+<div class="list-item" style="margin-left:0px">• <strong>Ops funding: ~$830/day → ~$25K/month</strong></div>
+<div class="list-item" style="margin-left:0px">• <strong>Staking rewards: ~$830/day → ~$25K/month</strong></div>
+<br>
+<p>Volume is the lever, not fee rate. The flat curve and low fees are designed to maximize volume.</p>
+<br>
+<h3>Staking Rewards (ETH Pool Buy Fees)</h3>
+<br>
+<p>100% of ETH pool buy fees are directed to a gauge contract:</p>
+<br>
+<div class="list-item" style="margin-left:0px">• Users stake $TRINITY → receive pro-rata share of ETH rewards</div>
+<div class="list-item" style="margin-left:0px">• Rewards accrue continuously, claimable at any time</div>
+<div class="list-item" style="margin-left:0px">• Staking locks TRINITY, reducing sell pressure on curves</div>
+<div class="list-item" style="margin-left:0px">• Positive feedback loop: more trading → more ETH rewards → more staking → less sell pressure → higher price → more trading</div>
+<br>
+<h3>Cross-Pool Feedback Loops</h3>
+<br>
+<pre><code class="">
+Buy cycle (all pools):
+  Buy volume ──► 1% fee to channel ──► Ops / Stakers / Chaos growth
+                                              │
+                                    Ecosystem grows ◄─┘
+                                              │
+                                    More users/volume ◄─┘
+
+Sell/Burn cycle (all pools):
+  Sell volume ──► 1% TRINITY burned ──► Reduced supply
+      ▲                                      │
+      └──── Higher price per token ◄─────────┘
+
+Arb cycle (cross-pool):
+  Price divergence ──► Arber buys cheap pool (fees to channel)
+      ▲                    │
+      │               Arber sells expensive pool (burns TRINITY)
+      │                    │
+      └──── Prices converge, repeat on next divergence
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>Deployment & Governance</h2>
+<br>
+<h3>Multisig Control</h3>
+<br>
+<p>All contracts are deployed from and owned by a multisig (e.g., Safe). The multisig:</p>
+<br>
+<div class="list-item" style="margin-left:0px">• <strong>Deploys</strong> the three bonding curve contracts + gauge contract</div>
+<div class="list-item" style="margin-left:0px">• <strong>Deposits</strong> 300M TRINITY into each curve</div>
+<div class="list-item" style="margin-left:0px">• <strong>Receives</strong> USDC channel fees for operations</div>
+<div class="list-item" style="margin-left:0px">• <strong>Controls</strong> parameter updates (if any are mutable)</div>
+<div class="list-item" style="margin-left:0px">• <strong>Cannot</strong> withdraw bonding curve reserves (credible neutrality)</div>
+<br>
+<h3>Immutability Considerations</h3>
+<br>
+<table><thead><tr>
+<th>Parameter</th>
+<th>Mutable?</th>
+<th>Rationale</th>
+</tr></thead><tbody>
+<tr>
+<td>Curve formula (BASE_PRICE, SLOPE)</td>
+<td><strong>No</strong></td>
+<td>Users need price predictability</td>
+</tr>
+<tr>
+<td>Fee rate (1%)</td>
+<td><strong>No</strong></td>
+<td>Changing fees changes the economic contract</td>
+</tr>
+<tr>
+<td>Fee routing (channels + burn)</td>
+<td><strong>No</strong></td>
+<td>Hardcoded destinations prevent rug</td>
+</tr>
+<tr>
+<td>Gauge contract address</td>
+<td><strong>Yes</strong> (multisig, timelock)</td>
+<td>May need migration</td>
+</tr>
+<tr>
+<td>Chaos Rewards multisig</td>
+<td><strong>Yes</strong> (multisig, timelock)</td>
+<td>May need migration</td>
+</tr>
+<tr>
+<td>Pause (emergency)</td>
+<td><strong>Yes</strong> (multisig)</td>
+<td>Circuit breaker only</td>
+</tr>
+</tbody></table>
+<br>
+<h3>Deployment Sequence</h3>
+<br>
+<pre><code class="">
+1. Deploy $TRINITY ERC-20 (1B supply minted to multisig)
+2. Deploy TrinityGauge contract (ETH staking rewards)
+3. Deploy TrinityBondingCurve (USDC pool)
+4. Deploy TrinityBondingCurve (ETH pool)
+5. Deploy TrinityBondingCurve (CHAOSLP pool)
+6. Multisig approves + deposits 300M TRINITY to each curve
+7. Multisig retains 100M TRINITY as treasury
+8. Trading opens
+</code></pre>
+<br>
+<hr>
+<br>
+<h2>Graduation Path (Optional Future)</h2>
+<br>
+<p>Once the bonding curves have bootstrapped sufficient liquidity and price discovery, the protocol could "graduate" to Uniswap V3/V4:</p>
+<br>
+<div class="list-item">1. <strong>Trigger</strong>: Total reserve value across all pools exceeds threshold (e.g., $1M)</div>
+<div class="list-item">2. <strong>Action</strong>: Migrate remaining TRINITY + accumulated reserves into concentrated liquidity positions on Uniswap</div>
+<div class="list-item">3. <strong>Result</strong>: Deeper liquidity, composability with broader DeFi ecosystem</div>
+<div class="list-item">4. <strong>Bonding curves</strong>: Deprecated, remaining tokens + reserves used for LP seeding</div>
+<br>
+<p>This is optional and would require a multisig-initiated transaction.</p>
+<br>
+<hr>
+<br>
+<h2>Risk Analysis</h2>
+<br>
+<h3>Economic Risks</h3>
+<br>
+<table><thead><tr>
+<th>Risk</th>
+<th>Severity</th>
+<th>Mitigation</th>
+</tr></thead><tbody>
+<tr>
+<td>Low volume → insufficient fees</td>
+<td>Medium</td>
+<td>1% is low enough to encourage volume; arb-driven volume compounds</td>
+</tr>
+<tr>
+<td>Arb drain on volatile pools</td>
+<td>Low</td>
+<td>2% round-trip cost for arbers is low but not free; each arb trade burns TRINITY</td>
+</tr>
+<tr>
+<td>CHAOSLP goes to zero</td>
+<td>Low impact</td>
+<td>That curve dies, 2/3 of liquidity unaffected</td>
+</tr>
+<tr>
+<td>ETH flash crash</td>
+<td>Medium</td>
+<td>ETH curve becomes cheap, arbers equalize, staking rewards drop temporarily</td>
+</tr>
+<tr>
+<td>Whale dumps 100M treasury</td>
+<td>High</td>
+<td>Consider vesting schedule or timelock on treasury allocation</td>
+</tr>
+<tr>
+<td>Curve over-collateralization drift</td>
+<td>Low</td>
+<td>Burns make curves more solvent over time — monitor but not a problem</td>
+</tr>
+</tbody></table>
+<br>
+<h3>Smart Contract Risks</h3>
+<br>
+<table><thead><tr>
+<th>Risk</th>
+<th>Severity</th>
+<th>Mitigation</th>
+</tr></thead><tbody>
+<tr>
+<td>Curve math precision errors</td>
+<td>High</td>
+<td>Use fixed-point math library (PRBMath or ABDKMath)</td>
+</tr>
+<tr>
+<td>Reentrancy on sell</td>
+<td>High</td>
+<td>CEI pattern, ReentrancyGuard on all external calls</td>
+</tr>
+<tr>
+<td>Fee rounding exploitation</td>
+<td>Low</td>
+<td>Round in protocol's favor, minimum trade sizes</td>
+</tr>
+<tr>
+<td>Bonding curve reserve insolvency</td>
+<td>Critical</td>
+<td>Invariant: reserve always covers all outstanding sells. Test exhaustively.</td>
+</tr>
+<tr>
+<td>Sandwich / MEV attacks</td>
+<td>Medium</td>
+<td>Slippage parameters on buy/sell; 1% fee makes sandwiching costly</td>
+</tr>
+</tbody></table>
+<br>
+<h3>Governance Risks</h3>
+<br>
+<table><thead><tr>
+<th>Risk</th>
+<th>Severity</th>
+<th>Mitigation</th>
+</tr></thead><tbody>
+<tr>
+<td>Multisig key compromise</td>
+<td>Critical</td>
+<td>Use Safe with 3/5 or higher threshold</td>
+</tr>
+<tr>
+<td>Multisig collusion (rug)</td>
+<td>High</td>
+<td>No withdraw on curve reserves. Channel fees are the only extraction.</td>
+</tr>
+<tr>
+<td>Stale multisig (lost keys)</td>
+<td>Medium</td>
+<td>Ensure key rotation plan, consider social recovery</td>
+</tr>
+</tbody></table>
+<br>
+<hr>
+<br>
+<h2>Open Items</h2>
+<br>
+<div class="checkbox">☐ <strong>Curve parameters</strong>: BASE_PRICE and SLOPE values per pool — needs simulation before deployment</div>
+<div class="checkbox">☐ <strong>Treasury vesting</strong>: Lock or vest the 100M treasury allocation to prevent dump risk</div>
+<div class="checkbox">☐ <strong>CHAOSLP pricing</strong>: Define how CHAOSLP is valued for curve parameterization (LP token vs raw token pricing)</div>
+<div class="checkbox">☐ <strong>Slippage protection</strong>: Define max slippage parameters for buy/sell functions</div>
+<div class="checkbox">☐ <strong>Pause behavior</strong>: Specify whether sells are allowed during emergency pause (users need exit liquidity)</div>
+<div class="checkbox">☐ <strong>Gauge design</strong>: Specify the staking gauge contract interface (existing CHAOSLP gauge pattern or new?)</div>
+<br>
+<hr>
+<br>
+<h2>Summary</h2>
+<br>
+<p>Trinity is three independent bonding curves with the simplest possible fee model:</p>
+<br>
+<div class="list-item" style="margin-left:0px">• <strong>Buys</strong>: 1% fee in quote asset → straight to channel (USDC→ops, ETH→stakers, CHAOSLP→Chaos staking)</div>
+<div class="list-item" style="margin-left:0px">• <strong>Sells</strong>: 1% fee in $TRINITY → burned</div>
+<br>
+<p>No reserves. No buybacks. No intermediaries. Every fee has one job.</p>
+<br>
+<p>The flat curve and 1% fee create a ~2% arb band across pools, enabling high-frequency cross-pool arbitrage that drives volume, burns supply, and funds operations. This aligns with the ArbMe ecosystem thesis: <strong>trading surfaces generate information corrections (arb), which generate fees, which compound as structural value.</strong></p>
+<br>
+<p>The result: a token with guaranteed bonding curve liquidity, sustainable ops funding from USDC fees, staking yield from ETH fees, Chaos ecosystem growth from CHAOSLP fees, and natural deflation from sell burns — all driven by trading activity alone.</p>
+<br>
+</div>
+</body>
+</html>
