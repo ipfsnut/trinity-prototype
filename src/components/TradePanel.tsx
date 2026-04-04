@@ -4,21 +4,40 @@ import { useState, useEffect, useCallback } from "react";
 import {
   useAccount,
   useReadContract,
-  useReadContracts,
   usePublicClient,
   useWalletClient,
 } from "wagmi";
-import { formatUnits, parseUnits, encodeFunctionData } from "viem";
+import { formatUnits, parseUnits, encodeFunctionData, encodeAbiParameters, keccak256 } from "viem";
 import {
   POOLS,
   ADDRESSES,
-  bondingCurveAbi,
+  trinityHookAbi,
+  trinityRouterAbi,
   erc20Abi,
   trinityTokenAbi,
+  quoteTokensOut,
+  quoteAssetOut,
+  spotPrice as calcSpotPrice,
   type PoolId,
 } from "@/lib/contracts";
 
 type Step = "input" | "approved" | "executing";
+
+// Compute V4 PoolId from PoolKey
+function poolKeyToId(key: { currency0: `0x${string}`; currency1: `0x${string}`; fee: number; tickSpacing: number; hooks: `0x${string}` }): `0x${string}` {
+  return keccak256(
+    encodeAbiParameters(
+      [
+        { type: "address" },
+        { type: "address" },
+        { type: "uint24" },
+        { type: "int24" },
+        { type: "address" },
+      ],
+      [key.currency0, key.currency1, key.fee, key.tickSpacing, key.hooks]
+    )
+  );
+}
 
 export function TradePanel() {
   const { address, isConnected } = useAccount();
@@ -44,31 +63,36 @@ export function TradePanel() {
   // Reset step when inputs change
   useEffect(() => { setStep("input"); setError(null); }, [amount, pool, side]);
 
-  // ── Read curve state ──────────────────────────────────────────
-  const { data: curveData, refetch: refetchCurve } = useReadContracts({
-    contracts: [
-      { address: p.curve, abi: bondingCurveAbi, functionName: "currentPrice" },
-      { address: p.curve, abi: bondingCurveAbi, functionName: "totalSold" },
-      { address: p.curve, abi: bondingCurveAbi, functionName: "totalBurned" },
-      { address: p.curve, abi: bondingCurveAbi, functionName: "tokensRemaining" },
-    ],
+  // ── Read curve state from hook ────────────────────────────────
+  const v4PoolId = poolKeyToId(p.poolKey);
+
+  const { data: curveData, refetch: refetchCurve } = useReadContract({
+    address: ADDRESSES.hook,
+    abi: trinityHookAbi,
+    functionName: "getCurve",
+    args: [v4PoolId],
   });
 
-  const spotPrice = curveData?.[0]?.result as bigint | undefined;
-  const totalSold = curveData?.[1]?.result as bigint | undefined;
-  const totalBurned = curveData?.[2]?.result as bigint | undefined;
-  const remaining = curveData?.[3]?.result as bigint | undefined;
+  // getCurve returns: (basePrice, slope, maxSupply, totalSold, totalBurned, feeRecipient, quoteDecimals, triIsCurrency0, active)
+  const totalSold = curveData ? (curveData as readonly bigint[])[3] : undefined;
+  const totalBurned = curveData ? (curveData as readonly bigint[])[4] : undefined;
 
-  // ── Preview output ────────────────────────────────────────────
-  const { data: preview } = useReadContract({
-    address: p.curve,
-    abi: bondingCurveAbi,
-    functionName: side === "buy" ? "quoteTokensOut" : "quoteAssetOut",
-    args: parsedAmount > 0n ? [parsedAmount] : undefined,
-    query: { enabled: parsedAmount > 0n },
-  });
+  const currentSpotPrice = totalSold !== undefined
+    ? calcSpotPrice(totalSold, p.basePrice, p.slope)
+    : undefined;
 
-  const previewOut = preview as bigint | undefined;
+  const remaining = totalSold !== undefined
+    ? p.supply - totalSold
+    : undefined;
+
+  // ── Preview output (computed locally) ─────────────────────────
+  const previewOut =
+    parsedAmount > 0n && totalSold !== undefined
+      ? side === "buy"
+        ? quoteTokensOut(parsedAmount, totalSold, p.basePrice, p.slope, p.quoteDecimals)
+        : quoteAssetOut(parsedAmount, totalSold, p.basePrice, p.slope, p.quoteDecimals)
+      : undefined;
+
   const outDecimals = side === "buy" ? 18 : p.quoteDecimals;
   const outSymbol = side === "buy" ? "TRI" : p.quoteSymbol;
 
@@ -104,7 +128,7 @@ export function TradePanel() {
     return hash;
   }
 
-  // ── Approve ───────────────────────────────────────────────────
+  // ── Approve (spend token → router) ────────────────────────────
   async function handleApprove() {
     if (parsedAmount === 0n) return;
     setLoading("approve");
@@ -113,7 +137,7 @@ export function TradePanel() {
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: "approve",
-        args: [p.curve, parsedAmount],
+        args: [ADDRESSES.router, parsedAmount],
       });
       await sendAndWait(spendToken, data);
       setStep("approved");
@@ -124,21 +148,35 @@ export function TradePanel() {
     }
   }
 
-  // ── Execute trade ─────────────────────────────────────────────
+  // ── Execute trade via TrinityRouter ───────────────────────────
   async function handleTrade() {
     if (parsedAmount === 0n) return;
     setLoading("trade");
     setError(null);
     try {
-      const data = encodeFunctionData({
-        abi: bondingCurveAbi,
-        functionName: side === "buy" ? "buy" : "sell",
-        args: [parsedAmount, 0n],
-      });
-      await sendAndWait(p.curve, data);
+      const key = {
+        currency0: p.poolKey.currency0,
+        currency1: p.poolKey.currency1,
+        fee: p.poolKey.fee,
+        tickSpacing: p.poolKey.tickSpacing,
+        hooks: p.poolKey.hooks,
+      };
+
+      const data = side === "buy"
+        ? encodeFunctionData({
+            abi: trinityRouterAbi,
+            functionName: "buyTri",
+            args: [key, parsedAmount, 0n, ADDRESSES.tri],
+          })
+        : encodeFunctionData({
+            abi: trinityRouterAbi,
+            functionName: "sellTri",
+            args: [key, parsedAmount, 0n, ADDRESSES.tri],
+          });
+
+      await sendAndWait(ADDRESSES.router, data);
       setAmount("");
       setStep("input");
-      // Delay refetch to let RPC index
       setTimeout(() => refetchAll(), 2000);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Trade failed");
@@ -150,10 +188,10 @@ export function TradePanel() {
 
   // ── Format helpers ────────────────────────────────────────────
   const fmt = (val: bigint | undefined, dec: number, dp = 6) =>
-    val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "—";
+    val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "\u2014";
 
   const fmtSpotPrice = (val: bigint | undefined) => {
-    if (val === undefined) return "—";
+    if (val === undefined) return "\u2014";
     const n = Number(formatUnits(val, 18));
     if (pool === "usdc") return `$${n.toFixed(8)}`;
     return `${n.toFixed(8)} ${p.quoteSymbol}`;
@@ -162,7 +200,7 @@ export function TradePanel() {
   const pctSold =
     totalSold !== undefined
       ? ((Number(totalSold) / Number(p.supply)) * 100).toFixed(2)
-      : "—";
+      : "\u2014";
 
   return (
     <div className="space-y-6">
@@ -188,7 +226,7 @@ export function TradePanel() {
       <div className="grid grid-cols-2 gap-3 text-sm">
         <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
           <div className="text-[#8892a4] text-xs">Spot Price</div>
-          <div className="text-white font-mono text-xs">{fmtSpotPrice(spotPrice)}</div>
+          <div className="text-white font-mono text-xs">{fmtSpotPrice(currentSpotPrice)}</div>
         </div>
         <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
           <div className="text-[#8892a4] text-xs">% Sold</div>
@@ -254,7 +292,7 @@ export function TradePanel() {
       </div>
 
       {/* Preview output */}
-      {previewOut !== undefined && parsedAmount > 0n && (
+      {previewOut !== undefined && previewOut > 0n && parsedAmount > 0n && (
         <div className="bg-[#16213e] rounded-lg p-4 border border-[#0f3460]">
           <div className="text-xs text-[#8892a4] mb-1">
             You {side === "buy" ? "receive" : "get back"}

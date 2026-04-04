@@ -1,13 +1,12 @@
 import { parseAbi } from "viem";
 
-// ── Deployed addresses (fill after deployment) ──────────────────────
+// ── V2 Deployed addresses (Base mainnet) ────────────────────────────
 export const ADDRESSES = {
-  tri: "0xB08af7FC1C44aa966E2bB1f817C42d51fC0AbD1F" as `0x${string}`,
-  usdcCurve: "0x40F4DbE008B876d41Cc34052233e6b4FD6bDc768" as `0x${string}`,
-  ethCurve: "0x3f7C76eB2D2E93d2A48916eDcff9316F17178884" as `0x${string}`,
-  clpCurve: "0x337A31D45DEec40CCee8E03AB07b3637d3301B3B" as `0x${string}`,
-  stakingHub: "0xF3904E16ba22ccb2E187E8d7Da2968FA0B769a93" as `0x${string}`,
-  wethGauge: "0xcad85612689A214d7764dae7D893baeB58733ac8" as `0x${string}`,
+  tri: "0x048857035823658872c8BcA4c3C943765e081e85" as `0x${string}`,
+  hook: "0x6EC5c87935E13450f82e24CB4133f9475e574888" as `0x${string}`,
+  router: "0x84AA77C45bc27D0B958f462801f527a643a97F46" as `0x${string}`,
+  stakingHub: "0x8C507fc36b3e787F0AcC31a82e9829b0ABA28361" as `0x${string}`,
+  wethGauge: "0xF11F22C89Db3fc8E377A7432A28a56C939529f64" as `0x${string}`,
   // Quote assets on Base
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
   weth: "0x4200000000000000000000000000000000000006" as `0x${string}`,
@@ -24,21 +23,16 @@ export const trinityTokenAbi = parseAbi([
   "function symbol() view returns (string)",
 ]);
 
-export const bondingCurveAbi = parseAbi([
-  "function buy(uint256 quoteAmount, uint256 minTokensOut)",
-  "function sell(uint256 trinityAmount, uint256 minQuoteOut)",
-  "function currentPrice() view returns (uint256)",
-  "function totalSold() view returns (uint256)",
-  "function totalBurned() view returns (uint256)",
-  "function tokensRemaining() view returns (uint256)",
-  "function maxSupply() view returns (uint256)",
-  "function quoteTokensOut(uint256 quoteIn) view returns (uint256)",
-  "function quoteAssetOut(uint256 triIn) view returns (uint256)",
-  "function basePrice() view returns (uint256)",
-  "function slope() view returns (uint256)",
-  "function quoteDecimals() view returns (uint8)",
-  "function initialized() view returns (bool)",
-  "function feeRecipient() view returns (address)",
+// TrinityHook — read curve state per pool
+export const trinityHookAbi = parseAbi([
+  "function getCurve(bytes32 id) view returns (uint256 basePrice, uint256 slope, uint256 maxSupply, uint256 totalSold, uint256 totalBurned, address feeRecipient, uint8 quoteDecimals, bool triIsCurrency0, bool active)",
+  "function tri() view returns (address)",
+]);
+
+// TrinityRouter — swap via V4 PoolManager
+export const trinityRouterAbi = parseAbi([
+  "function buyTri((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 quoteAmount, uint256 minTriOut, address triToken) returns (uint256 triOut)",
+  "function sellTri((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 triAmount, uint256 minQuoteOut, address triToken) returns (uint256 quoteOut)",
 ]);
 
 export const stakingHubAbi = parseAbi([
@@ -70,6 +64,32 @@ export const erc20Abi = parseAbi([
   "function symbol() view returns (string)",
 ]);
 
+// ── V4 Pool Keys ────────────────────────────────────────────────────
+// PoolKey struct: (currency0, currency1, fee, tickSpacing, hooks)
+// V4 requires currency0 < currency1
+
+function makePoolKey(quoteAsset: `0x${string}`): {
+  currency0: `0x${string}`;
+  currency1: `0x${string}`;
+  fee: number;
+  tickSpacing: number;
+  hooks: `0x${string}`;
+} {
+  const tri = ADDRESSES.tri.toLowerCase();
+  const quote = quoteAsset.toLowerCase();
+  const [c0, c1] =
+    tri < quote
+      ? [ADDRESSES.tri, quoteAsset]
+      : [quoteAsset, ADDRESSES.tri];
+  return {
+    currency0: c0,
+    currency1: c1,
+    fee: 0,
+    tickSpacing: 1,
+    hooks: ADDRESSES.hook,
+  };
+}
+
 // ── Pool config ─────────────────────────────────────────────────────
 export type PoolId = "usdc" | "eth" | "chaoslp";
 
@@ -79,9 +99,11 @@ export const POOLS: Record<
     label: string;
     quoteSymbol: string;
     quoteAsset: `0x${string}`;
-    curve: `0x${string}`;
+    poolKey: ReturnType<typeof makePoolKey>;
     quoteDecimals: number;
     supply: bigint;
+    basePrice: bigint;
+    slope: bigint;
     color: string;
   }
 > = {
@@ -89,27 +111,100 @@ export const POOLS: Record<
     label: "TRI / USDC",
     quoteSymbol: "USDC",
     quoteAsset: ADDRESSES.usdc,
-    curve: ADDRESSES.usdcCurve as `0x${string}`,
+    poolKey: makePoolKey(ADDRESSES.usdc),
     quoteDecimals: 6,
     supply: 334_000_000n * 10n ** 18n,
+    basePrice: 100_000_000_000_000n,
+    slope: 49_500_000n,
     color: "#4ecca3",
   },
   eth: {
     label: "TRI / WETH",
     quoteSymbol: "WETH",
     quoteAsset: ADDRESSES.weth,
-    curve: ADDRESSES.ethCurve,
+    poolKey: makePoolKey(ADDRESSES.weth),
     quoteDecimals: 18,
     supply: 333_000_000n * 10n ** 18n,
+    basePrice: 48_500_000_000n,
+    slope: 16_000n,
     color: "#4e9af0",
   },
   chaoslp: {
     label: "TRI / $CHAOSLP",
     quoteSymbol: "$CHAOSLP",
     quoteAsset: ADDRESSES.chaoslp,
-    curve: ADDRESSES.clpCurve,
+    poolKey: makePoolKey(ADDRESSES.chaoslp),
     quoteDecimals: 18,
     supply: 233_000_000n * 10n ** 18n,
+    basePrice: 3_889_770_000_000_000_000_000n,
+    slope: 1_280_000_000_000_000n,
     color: "#e94560",
   },
 };
+
+// ── Curve math (mirrors TrinityHook.sol) ────────────────────────────
+const WAD = 10n ** 18n;
+
+function sqrt(x: bigint): bigint {
+  if (x === 0n) return 0n;
+  let z = x;
+  let y = (z + 1n) / 2n;
+  while (y < z) {
+    z = y;
+    y = (x / y + y) / 2n;
+  }
+  return z;
+}
+
+function toWad(amount: bigint, decimals: number): bigint {
+  if (decimals === 18) return amount;
+  return amount * 10n ** BigInt(18 - decimals);
+}
+
+function fromWad(wadAmount: bigint, decimals: number): bigint {
+  if (decimals === 18) return wadAmount;
+  return wadAmount / 10n ** BigInt(18 - decimals);
+}
+
+/** Compute TRI output for a given quote input (after 1% fee). */
+export function quoteTokensOut(
+  quoteIn: bigint,
+  totalSold: bigint,
+  basePrice: bigint,
+  slope: bigint,
+  quoteDecimals: number
+): bigint {
+  const fee = (quoteIn * 100n) / 10_000n;
+  const net = quoteIn - fee;
+  const netWad = toWad(net, quoteDecimals);
+  if (netWad === 0n) return 0n;
+
+  const K = (2n * WAD * basePrice) / slope + 2n * totalSold;
+  const L = (2n * WAD) * ((WAD * netWad) / slope);
+  const disc = K * K + 4n * L;
+  const sqrtDisc = sqrt(disc);
+  return (sqrtDisc - K) / 2n;
+}
+
+/** Compute quote output for a given TRI sell amount (after 1% burn). */
+export function quoteAssetOut(
+  triIn: bigint,
+  totalSold: bigint,
+  basePrice: bigint,
+  slope: bigint,
+  quoteDecimals: number
+): bigint {
+  const burnAmount = (triIn * 100n) / 10_000n;
+  const sellAmount = triIn - burnAmount;
+  if (sellAmount === 0n || sellAmount > totalSold) return 0n;
+
+  const sumTerms = 2n * totalSold - sellAmount;
+  const baseCost = (basePrice * sellAmount) / WAD;
+  const slopeCost = ((slope * sellAmount) / WAD) * sumTerms / (2n * WAD);
+  return fromWad(baseCost + slopeCost, quoteDecimals);
+}
+
+/** Spot price in WAD (quote per TRI). */
+export function spotPrice(totalSold: bigint, basePrice: bigint, slope: bigint): bigint {
+  return basePrice + (slope * totalSold) / WAD;
+}
