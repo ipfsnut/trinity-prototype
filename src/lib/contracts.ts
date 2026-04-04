@@ -4,7 +4,7 @@ import { parseAbi } from "viem";
 export const ADDRESSES = {
   tri: "0x048857035823658872c8BcA4c3C943765e081e85" as `0x${string}`,
   hook: "0x6EC5c87935E13450f82e24CB4133f9475e574888" as `0x${string}`,
-  router: "0x84AA77C45bc27D0B958f462801f527a643a97F46" as `0x${string}`,
+  router: "0xb2934f0533E6db5Ea9Cf9B811567bE87645D2720" as `0x${string}`,
   stakingHub: "0x8C507fc36b3e787F0AcC31a82e9829b0ABA28361" as `0x${string}`,
   wethGauge: "0xF11F22C89Db3fc8E377A7432A28a56C939529f64" as `0x${string}`,
   // Quote assets on Base
@@ -29,10 +29,12 @@ export const trinityHookAbi = parseAbi([
   "function tri() view returns (address)",
 ]);
 
-// TrinityRouter — swap via V4 PoolManager
+// TrinityRouter — swap via V4 PoolManager (supports native ETH wrapping)
 export const trinityRouterAbi = parseAbi([
   "function buyTri((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 quoteAmount, uint256 minTriOut, address triToken) returns (uint256 triOut)",
+  "function buyTriWithETH((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 minTriOut, address triToken) payable returns (uint256 triOut)",
   "function sellTri((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 triAmount, uint256 minQuoteOut, address triToken) returns (uint256 quoteOut)",
+  "function sellTriForETH((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 triAmount, uint256 minEthOut, address triToken) returns (uint256 ethOut)",
 ]);
 
 export const stakingHubAbi = parseAbi([

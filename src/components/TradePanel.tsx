@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   useAccount,
+  useBalance,
   useReadContract,
   usePublicClient,
   useWalletClient,
@@ -51,9 +52,10 @@ export function TradePanel() {
   const [error, setError] = useState<string | null>(null);
 
   const p = POOLS[pool];
-  const spendToken = side === "buy" ? p.quoteAsset : ADDRESSES.tri;
+  const isEthBuy = pool === "eth" && side === "buy";
+  const spendToken = isEthBuy ? undefined : (side === "buy" ? p.quoteAsset : ADDRESSES.tri);
   const spendDecimals = side === "buy" ? p.quoteDecimals : 18;
-  const spendSymbol = side === "buy" ? p.quoteSymbol : "TRI";
+  const spendSymbol = side === "buy" ? (pool === "eth" ? "ETH" : p.quoteSymbol) : "TRI";
 
   const parsedAmount =
     amount && !isNaN(Number(amount))
@@ -94,16 +96,23 @@ export function TradePanel() {
       : undefined;
 
   const outDecimals = side === "buy" ? 18 : p.quoteDecimals;
-  const outSymbol = side === "buy" ? "TRI" : p.quoteSymbol;
+  const outSymbol = side === "buy" ? "TRI" : (pool === "eth" ? "ETH" : p.quoteSymbol);
 
   // ── User balances ─────────────────────────────────────────────
+  const { data: nativeEthData, refetch: refetchEth } = useBalance({
+    address,
+    query: { enabled: !!address && isEthBuy },
+  });
+
   const { data: spendBalance, refetch: refetchSpend } = useReadContract({
-    address: spendToken,
+    address: spendToken as `0x${string}`,
     abi: erc20Abi,
     functionName: "balanceOf",
     args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    query: { enabled: !!address && !isEthBuy },
   });
+
+  const displaySpendBalance = isEthBuy ? nativeEthData?.value : (spendBalance as bigint | undefined);
 
   const { data: triBalance, refetch: refetchTri } = useReadContract({
     address: ADDRESSES.tri,
@@ -117,7 +126,8 @@ export function TradePanel() {
     refetchCurve();
     refetchSpend();
     refetchTri();
-  }, [refetchCurve, refetchSpend, refetchTri]);
+    refetchEth();
+  }, [refetchCurve, refetchSpend, refetchTri, refetchEth]);
 
   // ── Send + wait helper ────────────────────────────────────────
   async function sendAndWait(to: `0x${string}`, data: `0x${string}`) {
@@ -128,18 +138,27 @@ export function TradePanel() {
     return hash;
   }
 
-  // ── Approve (spend token → router) ────────────────────────────
+  // ── ETH pool: buy with native ETH, sell for native ETH ─────────
+  const isEthPool = pool === "eth";
+  const useNativeETH = isEthPool; // ETH pool uses native ETH for UX
+
+  // ── Approve (spend token → router) — skip for native ETH buys ──
   async function handleApprove() {
     if (parsedAmount === 0n) return;
     setLoading("approve");
     setError(null);
     try {
+      if (useNativeETH && side === "buy") {
+        // No approval needed for native ETH
+        setStep("approved");
+        return;
+      }
       const data = encodeFunctionData({
         abi: erc20Abi,
         functionName: "approve",
         args: [ADDRESSES.router, parsedAmount],
       });
-      await sendAndWait(spendToken, data);
+      await sendAndWait(spendToken!, data);
       setStep("approved");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Approval failed");
@@ -150,7 +169,7 @@ export function TradePanel() {
 
   // ── Execute trade via TrinityRouter ───────────────────────────
   async function handleTrade() {
-    if (parsedAmount === 0n) return;
+    if (parsedAmount === 0n || !walletClient || !publicClient) return;
     setLoading("trade");
     setError(null);
     try {
@@ -162,19 +181,45 @@ export function TradePanel() {
         hooks: p.poolKey.hooks,
       };
 
-      const data = side === "buy"
-        ? encodeFunctionData({
-            abi: trinityRouterAbi,
-            functionName: "buyTri",
-            args: [key, parsedAmount, 0n, ADDRESSES.tri],
-          })
-        : encodeFunctionData({
-            abi: trinityRouterAbi,
-            functionName: "sellTri",
-            args: [key, parsedAmount, 0n, ADDRESSES.tri],
-          });
-
-      await sendAndWait(ADDRESSES.router, data);
+      if (useNativeETH && side === "buy") {
+        // Native ETH buy — send ETH as value, no ERC20 approval needed
+        const data = encodeFunctionData({
+          abi: trinityRouterAbi,
+          functionName: "buyTriWithETH",
+          args: [key, 0n, ADDRESSES.tri],
+        });
+        const hash = await walletClient.sendTransaction({
+          to: ADDRESSES.router,
+          data,
+          value: parsedAmount,
+          chain: walletClient.chain,
+          account: walletClient.account,
+        });
+        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
+        if (receipt.status !== "success") throw new Error("Transaction reverted");
+      } else if (useNativeETH && side === "sell") {
+        // Sell TRI for native ETH
+        const data = encodeFunctionData({
+          abi: trinityRouterAbi,
+          functionName: "sellTriForETH",
+          args: [key, parsedAmount, 0n, ADDRESSES.tri],
+        });
+        await sendAndWait(ADDRESSES.router, data);
+      } else {
+        // Standard ERC20 path (USDC, $CHAOSLP, or WETH direct)
+        const data = side === "buy"
+          ? encodeFunctionData({
+              abi: trinityRouterAbi,
+              functionName: "buyTri",
+              args: [key, parsedAmount, 0n, ADDRESSES.tri],
+            })
+          : encodeFunctionData({
+              abi: trinityRouterAbi,
+              functionName: "sellTri",
+              args: [key, parsedAmount, 0n, ADDRESSES.tri],
+            });
+        await sendAndWait(ADDRESSES.router, data);
+      }
       setAmount("");
       setStep("input");
       setTimeout(() => refetchAll(), 2000);
@@ -273,7 +318,7 @@ export function TradePanel() {
         <div className="flex justify-between text-xs text-[#8892a4] mb-2">
           <span>You {side === "buy" ? "pay" : "sell"}</span>
           <span>
-            Balance: {fmt(spendBalance as bigint | undefined, spendDecimals, 4)}{" "}
+            Balance: {fmt(displaySpendBalance, spendDecimals, 4)}{" "}
             {spendSymbol}
           </span>
         </div>
