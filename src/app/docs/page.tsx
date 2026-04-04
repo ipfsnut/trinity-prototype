@@ -18,9 +18,14 @@ export default function DocsPage() {
       description: "Interactive charts — V1 (uniform) and V2 (differentiated) curve visualizations.",
     },
     {
+      title: "Contracts (Solidity)",
+      href: "https://github.com/ipfsnut/trinity-prototype/tree/main/contracts",
+      description: "TrinityHook.sol, TrinityRouter.sol, TrinityToken.sol — all verified on Basescan.",
+    },
+    {
       title: "GitHub",
       href: "https://github.com/ipfsnut/trinity-prototype",
-      description: "Source code for the Trinity frontend. Contracts in the ArbMe monorepo.",
+      description: "Full source: frontend, contracts, and documentation.",
     },
   ];
 
