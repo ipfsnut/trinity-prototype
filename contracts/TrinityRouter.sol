@@ -127,6 +127,9 @@ contract TrinityRouter {
         uint256 minEthOut,
         address triToken
     ) external returns (uint256 ethOut) {
+        // Pull TRI from user into router — callback will transfer from router to PM
+        IERC20Minimal(triToken).transferFrom(msg.sender, address(this), triAmount);
+
         bool zeroForOne = triToken < Currency.unwrap(key.currency1)
             ? true
             : false;
@@ -139,9 +142,9 @@ contract TrinityRouter {
                 : TickMath.MAX_SQRT_PRICE - 1
         });
 
-        // For ETH sells, output goes to router first, then we unwrap
+        // Output goes to router (for WETH unwrapping), input from router (routerHoldsInput=true)
         BalanceDelta delta = abi.decode(
-            manager.unlock(abi.encode(SwapCallback(key, params, address(this), minEthOut, false))),
+            manager.unlock(abi.encode(SwapCallback(key, params, address(this), minEthOut, true))),
             (BalanceDelta)
         );
 
