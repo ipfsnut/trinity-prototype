@@ -71,7 +71,7 @@ export default function StakePage() {
   // ── Send + wait helper ────────────────────────────────────────
   async function sendAndWait(to: `0x${string}`, data: `0x${string}`) {
     if (!walletClient || !publicClient) throw new Error("No wallet");
-    const hash = await walletClient.sendTransaction({ to, data, chain: walletClient.chain, account: walletClient.account });
+    const hash = await walletClient.sendTransaction({ to, data, chain: walletClient.chain, account: walletClient.account, gas: 300_000n });
     const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
     if (receipt.status !== "success") throw new Error("Transaction reverted");
     return hash;
