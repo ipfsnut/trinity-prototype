@@ -3,19 +3,24 @@ import Link from "next/link";
 export default function DocsPage() {
   const docs = [
     {
-      title: "Trinity Protocol",
+      title: "Trinity V2 Protocol",
       href: "/docs-trinity.html",
-      description: "Architecture, fee model, burn mechanics, supply distribution, risk analysis.",
+      description: "V4 hook architecture, fee model, burn mechanics, cross-pool arb dynamics, deployed addresses.",
     },
     {
-      title: "Implementation",
+      title: "Implementation (V1 Reference)",
       href: "/docs-implementation.html",
-      description: "Technical evaluation, contract params, deployment plan, known issues.",
+      description: "Original technical evaluation, contract params, curve math derivations.",
     },
     {
       title: "Curves",
       href: "/docs-curves.html",
       description: "Interactive charts — V1 (uniform) and V2 (differentiated) curve visualizations.",
+    },
+    {
+      title: "GitHub",
+      href: "https://github.com/ipfsnut/trinity-prototype",
+      description: "Source code for the Trinity frontend. Contracts in the ArbMe monorepo.",
     },
   ];
 
