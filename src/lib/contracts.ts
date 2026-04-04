@@ -2,11 +2,11 @@ import { parseAbi } from "viem";
 
 // ── V2 Deployed addresses (Base mainnet) ────────────────────────────
 export const ADDRESSES = {
-  tri: "0x048857035823658872c8BcA4c3C943765e081e85" as `0x${string}`,
-  hook: "0x6EC5c87935E13450f82e24CB4133f9475e574888" as `0x${string}`,
-  router: "0xb2934f0533E6db5Ea9Cf9B811567bE87645D2720" as `0x${string}`,
-  stakingHub: "0x8C507fc36b3e787F0AcC31a82e9829b0ABA28361" as `0x${string}`,
-  wethGauge: "0xF11F22C89Db3fc8E377A7432A28a56C939529f64" as `0x${string}`,
+  tri: "0xB64C31059FCb832349B86Ad3b85B542b8Bb31F7B" as `0x${string}`,
+  hook: "0xD4C98e09E0b6430ED683DeE24189f6894EBf8888" as `0x${string}`,
+  router: "0x2261f5D1032930A863f7Da4C1B28544aC4Be9533" as `0x${string}`,
+  stakingHub: "0x0788e15b126C801787745fa2caD7CceadE26147e" as `0x${string}`,
+  wethGauge: "0x5Ac81774345Cd92bc10b734E183d47dd65fE1891" as `0x${string}`,
   // Quote assets on Base
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
   weth: "0x4200000000000000000000000000000000000006" as `0x${string}`,

@@ -42,9 +42,9 @@ export default function Home() {
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs text-[#8892a4] bg-[#0d1117] rounded-lg px-3 py-2 border border-[#0f3460]">
               <span>TRI:</span>
-              <code className="text-[#4ecca3] font-mono">0x048857035823658872c8BcA4c3C943765e081e85</code>
+              <code className="text-[#4ecca3] font-mono">0xB64C31059FCb832349B86Ad3b85B542b8Bb31F7B</code>
               <a
-                href="https://basescan.org/token/0x048857035823658872c8BcA4c3C943765e081e85"
+                href="https://basescan.org/token/0xB64C31059FCb832349B86Ad3b85B542b8Bb31F7B"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#4e9af0] hover:underline ml-auto"

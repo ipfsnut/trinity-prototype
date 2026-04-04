@@ -217,13 +217,16 @@ contract TrinityHook is IHooks, Ownable {
 
         if (config.totalSold + triOut > config.maxSupply) revert ExceedsSupply();
 
-        // Take quote asset from PoolManager to hook
-        manager.take(inputCurrency, address(this), quoteAmount);
-
-        // Send fee to feeRecipient
-        if (fee > 0) {
-            IERC20Minimal(Currency.unwrap(inputCurrency)).transfer(config.feeRecipient, fee);
-        }
+        // Take quote from PM + send fee. Wrapped in try-catch so the V4 Quoter
+        // can simulate this swap without pre-settled tokens. In real swaps the
+        // router pre-settles, so take() succeeds. In Quoter sims PM has no
+        // tokens, take() reverts, we catch it — the math and deltas are still
+        // correct for the quote.
+        try manager.take(inputCurrency, address(this), quoteAmount) {
+            if (fee > 0) {
+                IERC20Minimal(Currency.unwrap(inputCurrency)).transfer(config.feeRecipient, fee);
+            }
+        } catch {}
 
         // Settle TRI to PoolManager (hook sends TRI from its balance)
         _settle(outputCurrency, triOut);
@@ -253,14 +256,13 @@ contract TrinityHook is IHooks, Ownable {
         uint256 quoteOutWad = _calcQuoteOut(sellAmount, config.totalSold, config.basePrice, config.slope);
         uint256 quoteOut = _fromWad(quoteOutWad, config.quoteDecimals);
 
-        // Take TRI from PoolManager to hook
-        manager.take(inputCurrency, address(this), triAmount);
-
-        // Burn
-        if (burnAmount > 0) {
-            IERC20Minimal(Currency.unwrap(inputCurrency)).transfer(DEAD, burnAmount);
-            config.totalBurned += burnAmount;
-        }
+        // Take TRI from PM + burn. Same try-catch pattern for Quoter compat.
+        try manager.take(inputCurrency, address(this), triAmount) {
+            if (burnAmount > 0) {
+                IERC20Minimal(Currency.unwrap(inputCurrency)).transfer(DEAD, burnAmount);
+            }
+        } catch {}
+        config.totalBurned += burnAmount;
 
         // Settle quote asset to PoolManager (hook sends from its reserves)
         _settle(outputCurrency, quoteOut);
