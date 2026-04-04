@@ -143,7 +143,8 @@ contract TrinityHook is IHooks, Ownable {
     /*                      HOOK CALLBACKS                               */
     /* ══════════════════════════════════════════════════════════════════ */
 
-    /// @notice Block all external liquidity additions
+    /// @notice Allow LP additions — positions earn no fees (hook overrides AMM)
+    ///         but non-zero tick liquidity makes the pool visible to indexers.
     function beforeAddLiquidity(address, PoolKey calldata, IPoolManager.ModifyLiquidityParams calldata, bytes calldata)
         external
         view
@@ -151,7 +152,7 @@ contract TrinityHook is IHooks, Ownable {
         onlyPoolManager
         returns (bytes4)
     {
-        revert AddLiquidityBlocked();
+        return IHooks.beforeAddLiquidity.selector;
     }
 
     /// @notice Core pricing logic — replaces AMM with linear bonding curve
