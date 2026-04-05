@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trinity V2: Uniswap V4 Hook Bonding Curve Protocol</title>
+<title>Trinity V5: Uniswap V4 Hook Bonding Curve Protocol</title>
 <style>
   :root {
     --bg: #1a1a2e;
@@ -123,24 +123,24 @@
 </head>
 <body>
 <div class="container">
-<h1>Trinity V2: Uniswap V4 Hook Bonding Curve Protocol</h1>
+<h1>Trinity V5: Uniswap V4 Hook Bonding Curve Protocol</h1>
 <br>
 <h2>Overview</h2>
 <br>
 <p>Trinity is a bonding curve protocol implemented as a <strong>Uniswap V4 hook</strong>. A single hook contract serves three independent liquidity pools, each denominated in a different quote asset. The hook fully replaces the V4 AMM &mdash; it IS the liquidity source, using linear bonding curve pricing inside <code class="inline">beforeSwap</code>.</p>
 <br>
-<p>Because swaps route through Uniswap V4's PoolManager, Trinity pools are natively visible to the entire ecosystem: aggregators, bots, GeckoTerminal, block explorers. Trading fees are asymmetric: buy-side fees go to the multisig, sell-side fees burn $TRI.</p>
+<p>Because swaps route through Uniswap V4's PoolManager, Trinity pools are natively visible to the entire ecosystem: aggregators, bots, GeckoTerminal, block explorers. Trading fees are asymmetric: buy-side fees go to the multisig, sell-side fees burn $TRIN.</p>
 <br>
 <hr>
 <br>
 <h2>Architecture</h2>
 <br>
-<h3>Token: $TRI</h3>
+<h3>Token: $TRIN</h3>
 <br>
 <div class="list-item">&#8226; <strong>Total Supply</strong>: 1,000,000,000 (1B)</div>
 <div class="list-item">&#8226; <strong>Decimals</strong>: 18</div>
 <div class="list-item">&#8226; <strong>Type</strong>: Standard ERC-20 (OpenZeppelin, non-upgradeable)</div>
-<div class="list-item">&#8226; <strong>Address</strong>: <code class="inline">0x048857035823658872c8BcA4c3C943765e081e85</code></div>
+<div class="list-item">&#8226; <strong>Address</strong>: <code class="inline">0x1313b1B3387Ee849d549d9c9280148B237a375ae</code></div>
 <br>
 <h3>Supply Distribution</h3>
 <br>
@@ -150,15 +150,15 @@
 <th>%</th>
 <th>Purpose</th>
 </tr></thead><tbody>
-<tr><td>TRI/USDC Pool</td><td>334,000,000</td><td>33.4%</td><td>Stable anchor (1.5x slope)</td></tr>
-<tr><td>TRI/WETH Pool</td><td>333,000,000</td><td>33.3%</td><td>Blue chip liquidity (1x slope)</td></tr>
-<tr><td>TRI/$CHAOSLP Pool</td><td>233,000,000</td><td>23.3%</td><td>Community/speculative (1x slope, shorter curve)</td></tr>
+<tr><td>TRIN/USDC Pool</td><td>300,000,000</td><td>30%</td><td>Stable anchor</td></tr>
+<tr><td>TRIN/WETH Pool</td><td>300,000,000</td><td>30%</td><td>Blue chip liquidity</td></tr>
+<tr><td>TRIN/$CHAOSLP Pool</td><td>300,000,000</td><td>30%</td><td>Community/speculative</td></tr>
 <tr><td>Treasury (Multisig)</td><td>100,000,000</td><td>10%</td><td>Team, partnerships, reserves</td></tr>
 </tbody></table>
 <br>
 <h3>V4 Hook Architecture</h3>
 <br>
-<p>One hook contract, three pools. The hook intercepts every swap via <code class="inline">beforeSwap</code> and replaces the AMM with bonding curve math. External LPs are blocked &mdash; the hook holds all TRI reserves.</p>
+<p>One hook contract, three pools. The AMM runs normally &mdash; the hook manages WHERE liquidity sits (concentrated LP bands) and collects fees via <code class="inline">beforeSwap</code>. LP is seeded one-sided (TRIN only, Clanker pattern) and rebalances across bands as price moves.</p>
 <br>
 <pre><code>
                     +-----------------------+
@@ -167,21 +167,21 @@
                     +----------+------------+
                                |
                     +----------v------------+
-                    |    TRINITY HOOK       |
+                    |    TRINNITY HOOK       |
                     |  beforeSwap: pricing  |
-                    |  900M TRI reserves    |
+                    |  900M TRIN reserves    |
                     |  Per-pool CurveConfig |
                     +--+--------+--------+--+
                        |        |        |
               +--------v--+ +---v------+ +--v-----------+
-              | TRI/USDC  | | TRI/WETH | | TRI/$CHAOSLP |
-              | 334M TRI  | | 333M TRI | | 233M TRI     |
+              | TRINN/USDC  | | TRINN/WETH | | TRINN/$CHAOSLP |
+              | 300M TRIN  | | 300M TRIN | | 300M TRIN     |
               | 1.5x slope| | 1x slope | | 1x slope     |
               +-----------+ +----------+ +--------------+
                        |        |        |
                        v        v        v
                   All fees --> Multisig
-                  All sells --> Burn 1% TRI
+                  All sells --> Burn 1% TRIN
 </code></pre>
 <br>
 <p>Each pool has its own <code class="inline">CurveConfig</code>: independent <code class="inline">totalSold</code>, independent reserves, independent price curve. The pools share no state &mdash; they just live in the same hook contract.</p>
@@ -192,7 +192,7 @@
 <th>Contract</th>
 <th>Address</th>
 </tr></thead><tbody>
-<tr><td>TRI Token</td><td><code class="inline">0x048857035823658872c8BcA4c3C943765e081e85</code></td></tr>
+<tr><td>TRIN Token</td><td><code class="inline">0x1313b1B3387Ee849d549d9c9280148B237a375ae</code></td></tr>
 <tr><td>TrinityHook</td><td><code class="inline">0x6EC5c87935E13450f82e24CB4133f9475e574888</code></td></tr>
 <tr><td>TrinityRouter</td><td><code class="inline">0xb2934f0533E6db5Ea9Cf9B811567bE87645D2720</code></td></tr>
 <tr><td>Staking Hub</td><td><code class="inline">0x8C507fc36b3e787F0AcC31a82e9829b0ABA28361</code></td></tr>
@@ -214,7 +214,7 @@
 <br>
 <p>Where <code class="inline">s</code> = tokens sold from that pool. Price increases linearly as supply is purchased.</p>
 <br>
-<div class="list-item">&#8226; <strong>BASE_PRICE</strong>: Floor price (~$0.0001 per TRI in USD-equivalent across all pools)</div>
+<div class="list-item">&#8226; <strong>BASE_PRICE</strong>: Floor price (~$0.0001 per TRIN in USD-equivalent across all pools)</div>
 <div class="list-item">&#8226; <strong>SLOPE</strong>: USDC pool has 1.5x slope (premium venue), ETH and $CHAOSLP at 1x baseline</div>
 <div class="list-item">&#8226; <strong>Buy math</strong>: Quadratic formula &mdash; solving the integral for exact token output given quote input</div>
 <div class="list-item">&#8226; <strong>Sell math</strong>: Integral from <code class="inline">(totalSold - sellAmount)</code> to <code class="inline">totalSold</code></div>
@@ -228,9 +228,9 @@
 <th>Terminal Price</th>
 <th>Total Cost to Fill</th>
 </tr></thead><tbody>
-<tr><td>TRI/USDC</td><td>334M</td><td>4.95e-11 (1.5x)</td><td>$0.01663</td><td>$2,794,400</td></tr>
-<tr><td>TRI/WETH</td><td>333M</td><td>3.3e-11</td><td>$0.01109</td><td>$1,863,000</td></tr>
-<tr><td>TRI/$CHAOSLP</td><td>233M</td><td>3.3e-11</td><td>$0.00779</td><td>$919,100</td></tr>
+<tr><td>TRIN/USDC</td><td>334M</td><td>4.95e-11 (1.5x)</td><td>$0.01663</td><td>$2,794,400</td></tr>
+<tr><td>TRIN/WETH</td><td>333M</td><td>3.3e-11</td><td>$0.01109</td><td>$1,863,000</td></tr>
+<tr><td>TRIN/$CHAOSLP</td><td>233M</td><td>3.3e-11</td><td>$0.00779</td><td>$919,100</td></tr>
 </tbody></table>
 <br>
 <p>The steeper USDC slope makes it the "premium" venue. Arbers buy cheap on ETH/$CHAOSLP and sell expensive on USDC, generating directional fee flow and burns.</p>
@@ -239,7 +239,7 @@
 <br>
 <p><strong>Buy</strong>: User sends quote asset (USDC, ETH, or $CHAOSLP) via the TrinityRouter. The WETH pool accepts native ETH directly &mdash; the router wraps it automatically. Price advances along the curve.</p>
 <br>
-<p><strong>Sell</strong>: User sends $TRI via the router, receives quote asset. 1% of TRI is burned on every sell. The WETH pool can return native ETH. Price retreats along the curve.</p>
+<p><strong>Sell</strong>: User sends $TRIN via the router, receives quote asset. 1% of TRIN is burned on every sell. The WETH pool can return native ETH. Price retreats along the curve.</p>
 <br>
 <p>Both directions are always available. <strong>Guaranteed liquidity at a deterministic price.</strong></p>
 <br>
@@ -263,26 +263,26 @@
 <br>
 <p>All three pools send buy fees to the same multisig. The multisig then distributes: ops funding, staking gauge rewards (WETH, $CHAOSLP), etc.</p>
 <br>
-<h3>On Sells: 1% in $TRI &rarr; Burned</h3>
+<h3>On Sells: 1% in $TRIN &rarr; Burned</h3>
 <br>
-<pre><code>User sells 10,000 TRI for ETH:
-  - 100 TRI (1%) --> 0x000...dead (burned permanently)
-  - 9,900 TRI returned to the curve
-  - User receives ETH for the 9,900 TRI at curve price</code></pre>
+<pre><code>User sells 10,000 TRIN for ETH:
+  - 100 TRIN (1%) --> 0x000...dead (burned permanently)
+  - 9,900 TRIN returned to the curve
+  - User receives ETH for the 9,900 TRIN at curve price</code></pre>
 <br>
 <p><strong>Every sell is deflationary. No exceptions. All three pools burn on sells.</strong></p>
 <br>
 <h3>Fee Flow</h3>
 <br>
-<pre><code>BUY (user sends quote asset, gets TRI):
+<pre><code>BUY (user sends quote asset, gets TRIN):
   +------------------------------------------------------+
   | 1% fee in quote asset --> Multisig                    |
   |   Multisig distributes to: ops, staking gauges, etc  |
   +------------------------------------------------------+
 
-SELL (user sends TRI, gets quote asset):
+SELL (user sends TRIN, gets quote asset):
   +------------------------------------------------------+
-  | 1% fee in $TRI --> 0xdead (BURNED)                    |
+  | 1% fee in $TRIN --> 0xdead (BURNED)                    |
   +------------------------------------------------------+</code></pre>
 <br>
 <hr>
@@ -291,18 +291,18 @@ SELL (user sends TRI, gets quote asset):
 <br>
 <h3>Cross-Pool Arbitrage</h3>
 <br>
-<p>Each pool prices TRI independently. The USDC pool's steeper slope means TRI is always most expensive there. Arbers exploit the spread:</p>
+<p>Each pool prices TRIN independently. The USDC pool's steeper slope means TRIN is always most expensive there. Arbers exploit the spread:</p>
 <br>
 <pre><code>Example (from arb simulation, tested on-chain):
   After $100K organic USDC buy:
     USDC spot: $0.003132/TRI
-    WETH spot: $0.0001/TRI (unchanged)
+    WETH spot: $0.0001/TRIN (unchanged)
     Spread: 3,032%
 
   Arb bot:
-    1. Buy TRI from WETH pool for 10 WETH (~$20.6K)
-       --> Gets 32.3B TRI (gentle slope = more TRI per dollar)
-    2. Sell TRI to USDC pool
+    1. Buy TRIN from WETH pool for 10 WETH (~$20.6K)
+       --> Gets 32.3B TRIN (gentle slope = more TRIN per dollar)
+    2. Sell TRIN to USDC pool
        --> Receives $74,817 USDC
     3. Profit: $54,197 (262% ROI)
 
@@ -312,7 +312,7 @@ SELL (user sends TRI, gets quote asset):
     Spread: 3,032% --> 33% (convergence)</code></pre>
 <br>
 <p>Every arb trade is productive:</p>
-<div class="list-item">&#8226; Burns TRI (sell side)</div>
+<div class="list-item">&#8226; Burns TRIN (sell side)</div>
 <div class="list-item">&#8226; Sends fees to multisig (buy side)</div>
 <div class="list-item">&#8226; Converges prices across pools</div>
 <br>
@@ -336,7 +336,7 @@ SELL (user sends TRI, gets quote asset):
 <br>
 <h3>Per-Pool Sell Limits</h3>
 <br>
-<p>TRI is fungible across pools, but each pool tracks its own <code class="inline">totalSold</code>. You can't sell more TRI to a pool than was bought from it. If an arb drains one pool's reserves, sellers exit through another pool. The hook enforces this with an <code class="inline">ExceedsSold</code> guard.</p>
+<p>TRI is fungible across pools, but each pool tracks its own <code class="inline">totalSold</code>. You can't sell more TRIN to a pool than was bought from it. If an arb drains one pool's reserves, sellers exit through another pool. The hook enforces this with an <code class="inline">ExceedsSold</code> guard.</p>
 <br>
 <hr>
 <br>
@@ -368,19 +368,19 @@ SELL (user sends TRI, gets quote asset):
 <br>
 <h2>Staking</h2>
 <br>
-<p>Stake TRI to earn rewards from pool fees. Uses the ChaosLPHub + RewardGauge pattern.</p>
+<p>Stake TRIN to earn rewards from pool fees. Uses the ChaosLPHub + RewardGauge pattern.</p>
 <br>
-<div class="list-item">&#8226; <strong>Hub</strong>: Stake TRI, earn TRI (hub rewards, funded by multisig)</div>
+<div class="list-item">&#8226; <strong>Hub</strong>: Stake TRIN, earn TRIN (hub rewards, funded by multisig)</div>
 <div class="list-item">&#8226; <strong>WETH Gauge</strong>: Earn WETH (from ETH pool buy fees, forwarded by multisig)</div>
 <div class="list-item">&#8226; <strong>$CHAOSLP Gauge</strong>: Earn $CHAOSLP (from $CHAOSLP pool buy fees, forwarded by multisig)</div>
 <br>
-<p>Multisig collects fees from all three pools, then distributes to gauges via <code class="inline">notifyRewardAmount()</code>. Staking locks TRI, reducing sell pressure on curves.</p>
+<p>Multisig collects fees from all three pools, then distributes to gauges via <code class="inline">notifyRewardAmount()</code>. Staking locks TRIN, reducing sell pressure on curves.</p>
 <br>
 <hr>
 <br>
 <h2>Burn Mechanics</h2>
 <br>
-<p>Every sell on every pool burns 1% of the TRI input. Burned tokens go to <code class="inline">0x000...dEaD</code> and can never be recovered.</p>
+<p>Every sell on every pool burns 1% of the TRIN input. Burned tokens go to <code class="inline">0x000...dEaD</code> and can never be recovered.</p>
 <br>
 <h3>Burn Accounting</h3>
 <br>
@@ -399,7 +399,7 @@ SELL (user sends TRI, gets quote asset):
 <div class="list-item">&#8226; <strong>Owns</strong> the TrinityHook (can register new pools, update fee recipients)</div>
 <div class="list-item">&#8226; <strong>Receives</strong> all buy fees across all pools</div>
 <div class="list-item">&#8226; <strong>Distributes</strong> fees to staking gauges</div>
-<div class="list-item">&#8226; <strong>Cannot</strong> withdraw bonding curve reserves (hook holds TRI, quote reserves are protocol-owned)</div>
+<div class="list-item">&#8226; <strong>Cannot</strong> withdraw bonding curve reserves (hook holds TRIN, quote reserves are protocol-owned)</div>
 <br>
 <h3>Immutability</h3>
 <br>
@@ -440,9 +440,9 @@ SELL (user sends TRI, gets quote asset):
 <p>Trinity V2 is a Uniswap V4 hook that runs three independent bonding curves through a single contract. Swaps are visible to the entire Uniswap ecosystem &mdash; aggregators, bots, and block explorers see them natively.</p>
 <br>
 <div class="list-item">&#8226; <strong>Buys</strong>: 1% fee in quote asset &rarr; multisig (WETH pool accepts native ETH)</div>
-<div class="list-item">&#8226; <strong>Sells</strong>: 1% of TRI &rarr; burned permanently</div>
-<div class="list-item">&#8226; <strong>Arb</strong>: Differentiated slopes create cross-pool arb surfaces that converge prices, burn TRI, and generate fees</div>
-<div class="list-item">&#8226; <strong>Staking</strong>: Stake TRI, earn WETH + $CHAOSLP from pool fees</div>
+<div class="list-item">&#8226; <strong>Sells</strong>: 1% of TRIN &rarr; burned permanently</div>
+<div class="list-item">&#8226; <strong>Arb</strong>: Differentiated slopes create cross-pool arb surfaces that converge prices, burn TRIN, and generate fees</div>
+<div class="list-item">&#8226; <strong>Staking</strong>: Stake TRIN, earn WETH + $CHAOSLP from pool fees</div>
 <br>
 <p>The flat curve and 1% fee create a ~2% arb band across pools. Every arb trade burns supply and funds the protocol. <strong>Trading surfaces generate information corrections (arb), which generate fees, which compound as structural value.</strong></p>
 <br>

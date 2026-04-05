@@ -101,31 +101,35 @@ export const POOLS: Record<
     poolKey: ReturnType<typeof makePoolKey>;
     quoteDecimals: number;
     color: string;
+    geckoUrl: string;
   }
 > = {
   usdc: {
-    label: "TRIN /USDC",
+    label: "TRIN / USDC",
     quoteSymbol: "USDC",
     quoteAsset: ADDRESSES.usdc,
     poolKey: makePoolKey(ADDRESSES.usdc),
     quoteDecimals: 6,
     color: "#4ecca3",
+    geckoUrl: "https://www.geckoterminal.com/base/pools/0xd35b828aa74cd7832be68003ce44de7767987a27b8ef654ca6c595e7584a156e",
   },
   eth: {
-    label: "TRIN /ETH",
+    label: "TRIN / ETH",
     quoteSymbol: "ETH",
     quoteAsset: ADDRESSES.weth,
     poolKey: makePoolKey(ADDRESSES.weth),
     quoteDecimals: 18,
     color: "#4e9af0",
+    geckoUrl: "https://www.geckoterminal.com/base/pools/0x00275064520d3ef7a2f653ef850f1589bcbdb3b346cd1e6bc96f888d204ff149",
   },
   chaoslp: {
-    label: "TRIN /$CHAOSLP",
+    label: "TRIN / $CHAOSLP",
     quoteSymbol: "$CHAOSLP",
     quoteAsset: ADDRESSES.chaoslp,
     poolKey: makePoolKey(ADDRESSES.chaoslp),
     quoteDecimals: 18,
     color: "#e94560",
+    geckoUrl: "https://www.geckoterminal.com/base/pools/0x82b8764cf567ba42de55e6113efcadc9c5526c748f781ff24b9bc174bfc51bd4",
   },
 };
 

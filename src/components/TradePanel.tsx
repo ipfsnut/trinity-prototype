@@ -340,6 +340,16 @@ export function TradePanel() {
         ))}
       </div>
 
+      {/* GeckoTerminal link */}
+      <a
+        href={p.geckoUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="text-xs text-[#8892a4] hover:text-[#4e9af0] transition-colors"
+      >
+        {p.label} on GeckoTerminal &rarr;
+      </a>
+
       {/* Buy / Sell toggle */}
       <div className="flex gap-2">
         <button

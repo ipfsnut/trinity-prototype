@@ -3,9 +3,9 @@ import Link from "next/link";
 export default function DocsPage() {
   const docs = [
     {
-      title: "Trinity V2 Protocol",
+      title: "Trinity V5 Protocol",
       href: "/docs-trinity.html",
-      description: "V4 hook architecture, fee model, burn mechanics, cross-pool arb dynamics, deployed addresses.",
+      description: "V5 hook architecture, fee model, burn mechanics, cross-pool arb dynamics, deployed addresses.",
     },
     {
       title: "Implementation (V1 Reference)",
@@ -20,7 +20,12 @@ export default function DocsPage() {
     {
       title: "Contracts (Solidity)",
       href: "https://github.com/ipfsnut/trinity-prototype/tree/main/contracts",
-      description: "TrinityHook.sol, TrinityRouter.sol, TrinityToken.sol — all verified on Basescan.",
+      description: "TrinityHookV5.sol, TrinityToken.sol ($TRIN), DeployTrinityV5.s.sol — all verified on Basescan.",
+    },
+    {
+      title: "TRIN on Basescan",
+      href: "https://basescan.org/token/0x1313b1B3387Ee849d549d9c9280148B237a375ae",
+      description: "$TRIN token contract — 1B supply, CREATE2 deployed below WETH for currency0 ordering.",
     },
     {
       title: "GitHub",
