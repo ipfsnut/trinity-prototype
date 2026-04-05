@@ -1,12 +1,15 @@
 import { parseAbi } from "viem";
 
-// ── V2 Deployed addresses (Base mainnet) ────────────────────────────
+// ── V4 Deployed addresses (Base mainnet) ────────────────────────────
 export const ADDRESSES = {
-  tri: "0x52F69f6f8F30978A1F694f10dc5d8d45ECc0c0e9" as `0x${string}`,
-  hook: "0xb000F242eefBD4467B13a4B0c758c048EAcdC088" as `0x${string}`,
-  router: "0xD509db41d238CdD466ca0DF36Ff04E5040b6a067" as `0x${string}`,
-  stakingHub: "0x3a4C8Ee124e9051Ae26A2CaD5f1F7EF4EF7F6A49" as `0x${string}`,
-  wethGauge: "0x67B239Ef51d2A6587d9d3Def70070C57eE354B0D" as `0x${string}`,
+  tri: "0x20c0b4e3dDBF621D0933fe50DF1EcfD7a32c115d" as `0x${string}`,
+  hook: "0x2B62bDccB8602fEe9aDD46aE2B182d6e17a940c8" as `0x${string}`,
+  stakingHub: "0x3EDfB979944487865dd247ff7CC2F457A2a37B9E" as `0x${string}`,
+  wethGauge: "0xD93492c51029512Bc1E02Ee5c904A20B1cf82dc2" as `0x${string}`,
+  // V4 infrastructure on Base
+  universalRouter: "0x6ff5693b99212da76ad316178a184ab56d299b43" as `0x${string}`,
+  permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3" as `0x${string}`,
+  quoter: "0x0d5e0F971ED27FBfF6c2837bf31316121532048D" as `0x${string}`,
   // Quote assets on Base
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
   weth: "0x4200000000000000000000000000000000000006" as `0x${string}`,
@@ -23,18 +26,28 @@ export const trinityTokenAbi = parseAbi([
   "function symbol() view returns (string)",
 ]);
 
-// TrinityHook — read curve state per pool
-export const trinityHookAbi = parseAbi([
-  "function getCurve(bytes32 id) view returns (uint256 basePrice, uint256 slope, uint256 maxSupply, uint256 totalSold, uint256 totalBurned, address feeRecipient, uint8 quoteDecimals, bool triIsCurrency0, bool active)",
-  "function tri() view returns (address)",
+export const erc20Abi = parseAbi([
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address spender, uint256 amount) returns (bool)",
+  "function allowance(address owner, address spender) view returns (uint256)",
+  "function decimals() view returns (uint8)",
+  "function symbol() view returns (string)",
 ]);
 
-// TrinityRouter — swap via V4 PoolManager (supports native ETH wrapping)
-export const trinityRouterAbi = parseAbi([
-  "function buyTri((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 quoteAmount, uint256 minTriOut, address triToken) returns (uint256 triOut)",
-  "function buyTriWithETH((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 minTriOut, address triToken) payable returns (uint256 triOut)",
-  "function sellTri((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 triAmount, uint256 minQuoteOut, address triToken) returns (uint256 quoteOut)",
-  "function sellTriForETH((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) key, uint256 triAmount, uint256 minEthOut, address triToken) returns (uint256 ethOut)",
+// Universal Router V4 — execute(bytes commands, bytes[] inputs, uint256 deadline)
+export const universalRouterAbi = parseAbi([
+  "function execute(bytes calldata commands, bytes[] calldata inputs, uint256 deadline) external payable",
+]);
+
+// V4 Quoter — quoteExactInputSingle
+export const quoterAbi = parseAbi([
+  "function quoteExactInputSingle(((address currency0, address currency1, uint24 fee, int24 tickSpacing, address hooks) poolKey, bool zeroForOne, uint128 exactAmount, bytes hookData)) external returns (uint256 amountOut, uint256 gasEstimate)",
+]);
+
+// Permit2 — approve
+export const permit2Abi = parseAbi([
+  "function approve(address token, address spender, uint160 amount, uint48 expiration) external",
+  "function allowance(address owner, address token, address spender) view returns (uint160 amount, uint48 expiration, uint48 nonce)",
 ]);
 
 export const stakingHubAbi = parseAbi([
@@ -58,25 +71,9 @@ export const rewardGaugeAbi = parseAbi([
   "function getRewardForDuration() view returns (uint256)",
 ]);
 
-export const erc20Abi = parseAbi([
-  "function balanceOf(address) view returns (uint256)",
-  "function approve(address spender, uint256 amount) returns (bool)",
-  "function allowance(address owner, address spender) view returns (uint256)",
-  "function decimals() view returns (uint8)",
-  "function symbol() view returns (string)",
-]);
+// ── V4 Pool Keys (tickSpacing=200, fee=0, with hook) ────────────────
 
-// ── V4 Pool Keys ────────────────────────────────────────────────────
-// PoolKey struct: (currency0, currency1, fee, tickSpacing, hooks)
-// V4 requires currency0 < currency1
-
-function makePoolKey(quoteAsset: `0x${string}`): {
-  currency0: `0x${string}`;
-  currency1: `0x${string}`;
-  fee: number;
-  tickSpacing: number;
-  hooks: `0x${string}`;
-} {
+export function makePoolKey(quoteAsset: `0x${string}`) {
   const tri = ADDRESSES.tri.toLowerCase();
   const quote = quoteAsset.toLowerCase();
   const [c0, c1] =
@@ -87,7 +84,7 @@ function makePoolKey(quoteAsset: `0x${string}`): {
     currency0: c0,
     currency1: c1,
     fee: 0,
-    tickSpacing: 1,
+    tickSpacing: 200,
     hooks: ADDRESSES.hook,
   };
 }
@@ -103,9 +100,6 @@ export const POOLS: Record<
     quoteAsset: `0x${string}`;
     poolKey: ReturnType<typeof makePoolKey>;
     quoteDecimals: number;
-    supply: bigint;
-    basePrice: bigint;
-    slope: bigint;
     color: string;
   }
 > = {
@@ -115,9 +109,6 @@ export const POOLS: Record<
     quoteAsset: ADDRESSES.usdc,
     poolKey: makePoolKey(ADDRESSES.usdc),
     quoteDecimals: 6,
-    supply: 334_000_000n * 10n ** 18n,
-    basePrice: 100_000_000_000_000n,
-    slope: 49_500_000n,
     color: "#4ecca3",
   },
   eth: {
@@ -126,9 +117,6 @@ export const POOLS: Record<
     quoteAsset: ADDRESSES.weth,
     poolKey: makePoolKey(ADDRESSES.weth),
     quoteDecimals: 18,
-    supply: 333_000_000n * 10n ** 18n,
-    basePrice: 48_500_000_000n,
-    slope: 16_000n,
     color: "#4e9af0",
   },
   chaoslp: {
@@ -137,76 +125,16 @@ export const POOLS: Record<
     quoteAsset: ADDRESSES.chaoslp,
     poolKey: makePoolKey(ADDRESSES.chaoslp),
     quoteDecimals: 18,
-    supply: 233_000_000n * 10n ** 18n,
-    basePrice: 3_889_770_000_000_000_000_000n,
-    slope: 1_280_000_000_000_000n,
     color: "#e94560",
   },
 };
 
-// ── Curve math (mirrors TrinityHook.sol) ────────────────────────────
-const WAD = 10n ** 18n;
+// ── Universal Router V4 Swap Encoding ───────────────────────────────
+// Command 0x10 = V4_SWAP
+// Actions: SWAP_EXACT_IN_SINGLE(0x06) + SETTLE(0x0b) + TAKE(0x0e)
 
-function sqrt(x: bigint): bigint {
-  if (x === 0n) return 0n;
-  let z = x;
-  let y = (z + 1n) / 2n;
-  while (y < z) {
-    z = y;
-    y = (x / y + y) / 2n;
-  }
-  return z;
-}
+export const V4_SWAP_COMMAND = "0x10" as `0x${string}`;
 
-function toWad(amount: bigint, decimals: number): bigint {
-  if (decimals === 18) return amount;
-  return amount * 10n ** BigInt(18 - decimals);
-}
-
-function fromWad(wadAmount: bigint, decimals: number): bigint {
-  if (decimals === 18) return wadAmount;
-  return wadAmount / 10n ** BigInt(18 - decimals);
-}
-
-/** Compute TRI output for a given quote input (after 1% fee). */
-export function quoteTokensOut(
-  quoteIn: bigint,
-  totalSold: bigint,
-  basePrice: bigint,
-  slope: bigint,
-  quoteDecimals: number
-): bigint {
-  const fee = (quoteIn * 100n) / 10_000n;
-  const net = quoteIn - fee;
-  const netWad = toWad(net, quoteDecimals);
-  if (netWad === 0n) return 0n;
-
-  const K = (2n * WAD * basePrice) / slope + 2n * totalSold;
-  const L = (2n * WAD) * ((WAD * netWad) / slope);
-  const disc = K * K + 4n * L;
-  const sqrtDisc = sqrt(disc);
-  return (sqrtDisc - K) / 2n;
-}
-
-/** Compute quote output for a given TRI sell amount (after 1% burn). */
-export function quoteAssetOut(
-  triIn: bigint,
-  totalSold: bigint,
-  basePrice: bigint,
-  slope: bigint,
-  quoteDecimals: number
-): bigint {
-  const burnAmount = (triIn * 100n) / 10_000n;
-  const sellAmount = triIn - burnAmount;
-  if (sellAmount === 0n || sellAmount > totalSold) return 0n;
-
-  const sumTerms = 2n * totalSold - sellAmount;
-  const baseCost = (basePrice * sellAmount) / WAD;
-  const slopeCost = ((slope * sellAmount) / WAD) * sumTerms / (2n * WAD);
-  return fromWad(baseCost + slopeCost, quoteDecimals);
-}
-
-/** Spot price in WAD (quote per TRI). */
-export function spotPrice(totalSold: bigint, basePrice: bigint, slope: bigint): bigint {
-  return basePrice + (slope * totalSold) / WAD;
+export function isTriCurrency0(quoteAsset: `0x${string}`): boolean {
+  return ADDRESSES.tri.toLowerCase() < quoteAsset.toLowerCase();
 }

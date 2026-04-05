@@ -8,37 +8,25 @@ import {
   usePublicClient,
   useWalletClient,
 } from "wagmi";
-import { formatUnits, parseUnits, encodeFunctionData, encodeAbiParameters, keccak256 } from "viem";
+import {
+  formatUnits,
+  parseUnits,
+  encodeFunctionData,
+  encodeAbiParameters,
+  encodePacked,
+} from "viem";
 import {
   POOLS,
   ADDRESSES,
-  trinityHookAbi,
-  trinityRouterAbi,
   erc20Abi,
   trinityTokenAbi,
-  quoteTokensOut,
-  quoteAssetOut,
-  spotPrice as calcSpotPrice,
+  universalRouterAbi,
+  permit2Abi,
+  isTriCurrency0,
   type PoolId,
 } from "@/lib/contracts";
 
 type Step = "input" | "approved" | "executing";
-
-// Compute V4 PoolId from PoolKey
-function poolKeyToId(key: { currency0: `0x${string}`; currency1: `0x${string}`; fee: number; tickSpacing: number; hooks: `0x${string}` }): `0x${string}` {
-  return keccak256(
-    encodeAbiParameters(
-      [
-        { type: "address" },
-        { type: "address" },
-        { type: "uint24" },
-        { type: "int24" },
-        { type: "address" },
-      ],
-      [key.currency0, key.currency1, key.fee, key.tickSpacing, key.hooks]
-    )
-  );
-}
 
 export function TradePanel() {
   const { address, isConnected } = useAccount();
@@ -50,6 +38,7 @@ export function TradePanel() {
   const [step, setStep] = useState<Step>("input");
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [slippageBps, setSlippageBps] = useState(50); // 0.5% default
 
   const p = POOLS[pool];
   const isEthBuy = pool === "eth" && side === "buy";
@@ -62,41 +51,7 @@ export function TradePanel() {
       ? parseUnits(amount, spendDecimals)
       : 0n;
 
-  // Reset step when inputs change
   useEffect(() => { setStep("input"); setError(null); }, [amount, pool, side]);
-
-  // ── Read curve state from hook ────────────────────────────────
-  const v4PoolId = poolKeyToId(p.poolKey);
-
-  const { data: curveData, refetch: refetchCurve } = useReadContract({
-    address: ADDRESSES.hook,
-    abi: trinityHookAbi,
-    functionName: "getCurve",
-    args: [v4PoolId],
-  });
-
-  // getCurve returns: (basePrice, slope, maxSupply, totalSold, totalBurned, feeRecipient, quoteDecimals, triIsCurrency0, active)
-  const totalSold = curveData ? (curveData as readonly bigint[])[3] : undefined;
-  const totalBurned = curveData ? (curveData as readonly bigint[])[4] : undefined;
-
-  const currentSpotPrice = totalSold !== undefined
-    ? calcSpotPrice(totalSold, p.basePrice, p.slope)
-    : undefined;
-
-  const remaining = totalSold !== undefined
-    ? p.supply - totalSold
-    : undefined;
-
-  // ── Preview output (computed locally) ─────────────────────────
-  const previewOut =
-    parsedAmount > 0n && totalSold !== undefined
-      ? side === "buy"
-        ? quoteTokensOut(parsedAmount, totalSold, p.basePrice, p.slope, p.quoteDecimals)
-        : quoteAssetOut(parsedAmount, totalSold, p.basePrice, p.slope, p.quoteDecimals)
-      : undefined;
-
-  const outDecimals = side === "buy" ? 18 : p.quoteDecimals;
-  const outSymbol = side === "buy" ? "TRI" : (pool === "eth" ? "ETH" : p.quoteSymbol);
 
   // ── User balances ─────────────────────────────────────────────
   const { data: nativeEthData, refetch: refetchEth } = useBalance({
@@ -123,42 +78,52 @@ export function TradePanel() {
   });
 
   const refetchAll = useCallback(() => {
-    refetchCurve();
     refetchSpend();
     refetchTri();
     refetchEth();
-  }, [refetchCurve, refetchSpend, refetchTri, refetchEth]);
+  }, [refetchSpend, refetchTri, refetchEth]);
 
   // ── Send + wait helper ────────────────────────────────────────
-  async function sendAndWait(to: `0x${string}`, data: `0x${string}`) {
+  async function sendAndWait(to: `0x${string}`, data: `0x${string}`, value?: bigint) {
     if (!walletClient || !publicClient) throw new Error("No wallet");
-    const hash = await walletClient.sendTransaction({ to, data, chain: walletClient.chain, account: walletClient.account });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
+    const hash = await walletClient.sendTransaction({
+      to, data, chain: walletClient.chain, account: walletClient.account,
+      value, gas: 500_000n,
+    });
+    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
     if (receipt.status !== "success") throw new Error("Transaction reverted");
     return hash;
   }
 
-  // ── ETH pool: buy with native ETH, sell for native ETH ─────────
-  const isEthPool = pool === "eth";
-  const useNativeETH = isEthPool; // ETH pool uses native ETH for UX
-
-  // ── Approve (spend token → router) — skip for native ETH buys ──
+  // ── Approve (ERC20 -> Permit2 -> Universal Router) ────────────
   async function handleApprove() {
-    if (parsedAmount === 0n) return;
-    setLoading("approve");
-    setError(null);
+    if (parsedAmount === 0n || !address) return;
+    setLoading("Approving..."); setError(null);
     try {
-      if (useNativeETH && side === "buy") {
+      if (isEthBuy) {
         // No approval needed for native ETH
         setStep("approved");
         return;
       }
-      const data = encodeFunctionData({
+
+      const token = spendToken!;
+
+      // Step 1: Approve token to Permit2
+      const approveData = encodeFunctionData({
         abi: erc20Abi,
         functionName: "approve",
-        args: [ADDRESSES.router, parsedAmount],
+        args: [ADDRESSES.permit2, parsedAmount],
       });
-      await sendAndWait(spendToken!, data);
+      await sendAndWait(token, approveData);
+
+      // Step 2: Grant Permit2 allowance to Universal Router
+      const permit2Data = encodeFunctionData({
+        abi: permit2Abi,
+        functionName: "approve",
+        args: [token, ADDRESSES.universalRouter, parsedAmount > 2n ** 160n - 1n ? 2n ** 160n - 1n : parsedAmount, Number(Math.floor(Date.now() / 1000) + 86400)],
+      });
+      await sendAndWait(ADDRESSES.permit2, permit2Data);
+
       setStep("approved");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Approval failed");
@@ -167,59 +132,143 @@ export function TradePanel() {
     }
   }
 
-  // ── Execute trade via TrinityRouter ───────────────────────────
+  // ── Execute swap via Universal Router ─────────────────────────
   async function handleTrade() {
-    if (parsedAmount === 0n || !walletClient || !publicClient) return;
-    setLoading("trade");
-    setError(null);
+    if (parsedAmount === 0n || !address || !walletClient || !publicClient) return;
+    setLoading("Swapping..."); setError(null);
     try {
-      const key = {
-        currency0: p.poolKey.currency0,
-        currency1: p.poolKey.currency1,
-        fee: p.poolKey.fee,
-        tickSpacing: p.poolKey.tickSpacing,
-        hooks: p.poolKey.hooks,
-      };
+      const key = p.poolKey;
+      const triIs0 = isTriCurrency0(p.quoteAsset);
 
-      if (useNativeETH && side === "buy") {
-        // Native ETH buy — send ETH as value, no ERC20 approval needed
-        const data = encodeFunctionData({
-          abi: trinityRouterAbi,
-          functionName: "buyTriWithETH",
-          args: [key, 0n, ADDRESSES.tri],
-        });
-        const hash = await walletClient.sendTransaction({
-          to: ADDRESSES.router,
-          data,
-          value: parsedAmount,
-          chain: walletClient.chain,
-          account: walletClient.account,
-        });
-        const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 30_000 });
-        if (receipt.status !== "success") throw new Error("Transaction reverted");
-      } else if (useNativeETH && side === "sell") {
-        // Sell TRI for native ETH
-        const data = encodeFunctionData({
-          abi: trinityRouterAbi,
-          functionName: "sellTriForETH",
-          args: [key, parsedAmount, 0n, ADDRESSES.tri],
-        });
-        await sendAndWait(ADDRESSES.router, data);
+      // Determine swap direction
+      let zeroForOne: boolean;
+      let tokenIn: `0x${string}`;
+      let tokenOut: `0x${string}`;
+
+      if (side === "buy") {
+        tokenIn = p.quoteAsset;
+        tokenOut = ADDRESSES.tri;
+        zeroForOne = !triIs0;
       } else {
-        // Standard ERC20 path (USDC, $CHAOSLP, or WETH direct)
-        const data = side === "buy"
-          ? encodeFunctionData({
-              abi: trinityRouterAbi,
-              functionName: "buyTri",
-              args: [key, parsedAmount, 0n, ADDRESSES.tri],
-            })
-          : encodeFunctionData({
-              abi: trinityRouterAbi,
-              functionName: "sellTri",
-              args: [key, parsedAmount, 0n, ADDRESSES.tri],
-            });
-        await sendAndWait(ADDRESSES.router, data);
+        tokenIn = ADDRESSES.tri;
+        tokenOut = p.quoteAsset;
+        zeroForOne = triIs0;
       }
+
+      // Quote first to get expected output
+      setLoading("Getting quote...");
+      const quoteData = encodeFunctionData({
+        abi: [{ type: "function", name: "quoteExactInputSingle",
+          inputs: [{ type: "tuple", name: "params", components: [
+            { type: "tuple", name: "poolKey", components: [
+              { name: "currency0", type: "address" },
+              { name: "currency1", type: "address" },
+              { name: "fee", type: "uint24" },
+              { name: "tickSpacing", type: "int24" },
+              { name: "hooks", type: "address" },
+            ]},
+            { name: "zeroForOne", type: "bool" },
+            { name: "exactAmount", type: "uint128" },
+            { name: "hookData", type: "bytes" },
+          ]}],
+          outputs: [{ type: "uint256" }, { type: "uint256" }],
+          stateMutability: "nonpayable",
+        }],
+        functionName: "quoteExactInputSingle",
+        args: [{ poolKey: key, zeroForOne, exactAmount: parsedAmount, hookData: "0x" }],
+      });
+
+      let minAmountOut = 1n;
+      try {
+        const quoteResult = await publicClient!.call({
+          to: ADDRESSES.quoter,
+          data: quoteData,
+        });
+        if (quoteResult.data) {
+          const decoded = BigInt("0x" + quoteResult.data.slice(2, 66));
+          // Apply slippage: minOut = quoted * (10000 - slippageBps) / 10000
+          minAmountOut = decoded * BigInt(10000 - slippageBps) / 10000n;
+        }
+      } catch {
+        // Quoter failed — use 1n as fallback (no slippage protection)
+        console.warn("Quoter failed, proceeding without slippage protection");
+      }
+
+      setLoading("Swapping...");
+
+      // V4_SWAP command = 0x10
+      const commands = "0x10" as `0x${string}`;
+
+      // Actions: SWAP_EXACT_IN_SINGLE(0x06), SETTLE(0x0b), TAKE(0x0e)
+      const actions = encodePacked(
+        ["uint8", "uint8", "uint8"],
+        [0x06, 0x0b, 0x0e]
+      );
+
+      // Param 0: ExactInputSingleParams
+      const swapParam = encodeAbiParameters(
+        [{
+          type: "tuple",
+          components: [
+            { type: "tuple", name: "poolKey", components: [
+              { name: "currency0", type: "address" },
+              { name: "currency1", type: "address" },
+              { name: "fee", type: "uint24" },
+              { name: "tickSpacing", type: "int24" },
+              { name: "hooks", type: "address" },
+            ]},
+            { name: "zeroForOne", type: "bool" },
+            { name: "amountIn", type: "uint128" },
+            { name: "amountOutMinimum", type: "uint128" },
+            { name: "hookData", type: "bytes" },
+          ],
+        }],
+        [{
+          poolKey: {
+            currency0: key.currency0,
+            currency1: key.currency1,
+            fee: key.fee,
+            tickSpacing: key.tickSpacing,
+            hooks: key.hooks,
+          },
+          zeroForOne,
+          amountIn: parsedAmount,
+          amountOutMinimum: minAmountOut,
+          hookData: "0x",
+        }]
+      );
+
+      // Param 1: SETTLE - pay input currency (amount=0 = full delta, payerIsUser=true)
+      const settleParam = encodeAbiParameters(
+        [{ type: "address" }, { type: "uint256" }, { type: "bool" }],
+        [tokenIn, 0n, true]
+      );
+
+      // Param 2: TAKE - receive output currency (amount=0 = full delta)
+      const takeParam = encodeAbiParameters(
+        [{ type: "address" }, { type: "address" }, { type: "uint256" }],
+        [tokenOut, address, 0n]
+      );
+
+      // Wrap as abi.encode(bytes actions, bytes[] params) for V4_SWAP input
+      const v4SwapInput = encodeAbiParameters(
+        [{ type: "bytes" }, { type: "bytes[]" }],
+        [actions, [swapParam, settleParam, takeParam]]
+      );
+
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+
+      const data = encodeFunctionData({
+        abi: universalRouterAbi,
+        functionName: "execute",
+        args: [commands, [v4SwapInput], deadline],
+      });
+
+      // For ETH buys, send value
+      const value = isEthBuy ? parsedAmount : undefined;
+
+      await sendAndWait(ADDRESSES.universalRouter, data, value);
+
       setAmount("");
       setStep("input");
       setTimeout(() => refetchAll(), 2000);
@@ -231,21 +280,10 @@ export function TradePanel() {
     }
   }
 
-  // ── Format helpers ────────────────────────────────────────────
-  const fmt = (val: bigint | undefined, dec: number, dp = 6) =>
+  const fmt = (val: bigint | undefined, dec: number, dp = 4) =>
     val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "\u2014";
 
-  const fmtSpotPrice = (val: bigint | undefined) => {
-    if (val === undefined) return "\u2014";
-    const n = Number(formatUnits(val, 18));
-    if (pool === "usdc") return `$${n.toFixed(8)}`;
-    return `${n.toFixed(8)} ${p.quoteSymbol}`;
-  };
-
-  const pctSold =
-    totalSold !== undefined
-      ? ((Number(totalSold) / Number(p.supply)) * 100).toFixed(2)
-      : "\u2014";
+  const outSymbol = side === "buy" ? "TRI" : (pool === "eth" ? "ETH" : p.quoteSymbol);
 
   return (
     <div className="space-y-6">
@@ -265,28 +303,6 @@ export function TradePanel() {
             {POOLS[id].quoteSymbol}
           </button>
         ))}
-      </div>
-
-      {/* Curve stats */}
-      <div className="grid grid-cols-2 gap-3 text-sm">
-        <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
-          <div className="text-[#8892a4] text-xs">Spot Price</div>
-          <div className="text-white font-mono text-xs">{fmtSpotPrice(currentSpotPrice)}</div>
-        </div>
-        <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
-          <div className="text-[#8892a4] text-xs">% Sold</div>
-          <div className="text-white font-mono">{pctSold}%</div>
-        </div>
-        <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
-          <div className="text-[#8892a4] text-xs">Remaining</div>
-          <div className="text-white font-mono">{fmt(remaining, 18, 0)} TRI</div>
-        </div>
-        <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
-          <div className="text-[#8892a4] text-xs">Total Burned</div>
-          <div className="text-white font-mono text-[#e94560]">
-            {fmt(totalBurned, 18, 0)} TRI
-          </div>
-        </div>
       </div>
 
       {/* Buy / Sell toggle */}
@@ -336,24 +352,37 @@ export function TradePanel() {
         </div>
       </div>
 
-      {/* Preview output */}
-      {previewOut !== undefined && previewOut > 0n && parsedAmount > 0n && (
-        <div className="bg-[#16213e] rounded-lg p-4 border border-[#0f3460]">
-          <div className="text-xs text-[#8892a4] mb-1">
-            You {side === "buy" ? "receive" : "get back"}
+      {/* Fee + slippage info */}
+      {parsedAmount > 0n && (
+        <div className="bg-[#16213e] rounded-lg p-3 border border-[#0f3460] space-y-2">
+          <div className="text-xs text-[#8892a4]">
+            1% fee {side === "buy"
+              ? `(${fmt(parsedAmount / 100n, spendDecimals, 4)} ${spendSymbol} to multisig)`
+              : "(1% TRI burned)"
+            }
           </div>
-          <div className="text-white text-xl font-mono">
-            {fmt(previewOut, outDecimals, 4)} {outSymbol}
-          </div>
-          <div className="text-xs text-[#8892a4] mt-1">
-            1% fee {side === "buy" ? `\u2192 ${p.quoteSymbol} to multisig` : "\u2192 TRI burned"}
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-[#8892a4]">Slippage:</span>
+            {[50, 100, 200].map((bps) => (
+              <button
+                key={bps}
+                onClick={() => setSlippageBps(bps)}
+                className={`px-2 py-0.5 rounded text-xs ${
+                  slippageBps === bps
+                    ? "bg-[#4e9af0] text-white"
+                    : "bg-[#0d1117] text-[#8892a4] hover:text-white"
+                }`}
+              >
+                {bps / 100}%
+              </button>
+            ))}
           </div>
         </div>
       )}
 
-      {/* Error display */}
+      {/* Error */}
       {error && (
-        <div className="text-sm text-[#e94560] bg-[#0d1117] rounded-lg p-3 border border-[#e94560]/30">
+        <div className="text-sm text-[#e94560] bg-[#0d1117] rounded-lg p-3 border border-[#e94560]/30 break-all">
           {error}
         </div>
       )}
@@ -369,9 +398,9 @@ export function TradePanel() {
           disabled={loading !== null || parsedAmount === 0n}
           className="w-full py-3 rounded-lg bg-[#f0c040] text-black font-medium disabled:opacity-50"
         >
-          {loading === "approve"
-            ? "Approving..."
-            : `Approve ${amount || "0"} ${spendSymbol}`}
+          {loading || (isEthBuy
+            ? `Trade ${amount || "0"} ETH`
+            : `Approve ${amount || "0"} ${spendSymbol}`)}
         </button>
       ) : step === "approved" ? (
         <button
@@ -383,9 +412,7 @@ export function TradePanel() {
               : "bg-[#e94560] text-white"
           }`}
         >
-          {loading === "trade"
-            ? "Confirming..."
-            : `${side === "buy" ? "Buy" : "Sell"} TRI`}
+          {loading || `${side === "buy" ? "Buy" : "Sell"} TRI`}
         </button>
       ) : null}
 
