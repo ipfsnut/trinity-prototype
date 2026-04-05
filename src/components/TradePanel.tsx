@@ -13,20 +13,43 @@ import {
   parseUnits,
   encodeFunctionData,
   encodeAbiParameters,
-  encodePacked,
 } from "viem";
 import {
   POOLS,
   ADDRESSES,
   erc20Abi,
   trinityTokenAbi,
-  universalRouterAbi,
-  permit2Abi,
   isTriCurrency0,
   type PoolId,
 } from "@/lib/contracts";
 
-type Step = "input" | "approved" | "executing";
+// ── ABIs (inline, matching Clanker's v4-swap-clanker.ts exactly) ────────
+const PERMIT2_ABI = [
+  { name: "approve", type: "function", stateMutability: "nonpayable",
+    inputs: [{ name: "token", type: "address" }, { name: "spender", type: "address" }, { name: "amount", type: "uint160" }, { name: "expiration", type: "uint48" }], outputs: [] },
+  { name: "allowance", type: "function", stateMutability: "view",
+    inputs: [{ name: "owner", type: "address" }, { name: "token", type: "address" }, { name: "spender", type: "address" }],
+    outputs: [{ name: "amount", type: "uint160" }, { name: "expiration", type: "uint48" }, { name: "nonce", type: "uint48" }] },
+] as const;
+
+const UNIVERSAL_ROUTER_ABI = [
+  { name: "execute", type: "function", stateMutability: "payable",
+    inputs: [{ name: "commands", type: "bytes" }, { name: "inputs", type: "bytes[]" }, { name: "deadline", type: "uint256" }], outputs: [] },
+] as const;
+
+const QUOTER_ABI = [{
+  name: "quoteExactInputSingle", type: "function", stateMutability: "nonpayable",
+  inputs: [{ type: "tuple", name: "params", components: [
+    { name: "poolKey", type: "tuple", components: [
+      { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+      { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" }, { name: "hooks", type: "address" },
+    ]},
+    { name: "zeroForOne", type: "bool" }, { name: "exactAmount", type: "uint128" }, { name: "hookData", type: "bytes" },
+  ]}],
+  outputs: [{ name: "amountOut", type: "uint256" }, { name: "gasEstimate", type: "uint256" }],
+}] as const;
+
+type Step = "input" | "approved";
 
 export function TradePanel() {
   const { address, isConnected } = useAccount();
@@ -38,53 +61,39 @@ export function TradePanel() {
   const [step, setStep] = useState<Step>("input");
   const [loading, setLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [slippageBps, setSlippageBps] = useState(50); // 0.5% default
+  const [slippageBps, setSlippageBps] = useState(200); // 2% default
+  const [quoteOut, setQuoteOut] = useState<bigint | null>(null);
 
   const p = POOLS[pool];
-  const isEthBuy = pool === "eth" && side === "buy";
-  const spendToken = isEthBuy ? undefined : (side === "buy" ? p.quoteAsset : ADDRESSES.tri);
+  const spendToken = side === "buy" ? p.quoteAsset : ADDRESSES.tri;
   const spendDecimals = side === "buy" ? p.quoteDecimals : 18;
-  const spendSymbol = side === "buy" ? (pool === "eth" ? "ETH" : p.quoteSymbol) : "TRI";
+  const spendSymbol = side === "buy" ? p.quoteSymbol : "TRI";
+  const outDecimals = side === "buy" ? 18 : p.quoteDecimals;
+  const outSymbol = side === "buy" ? "TRI" : p.quoteSymbol;
 
-  const parsedAmount =
-    amount && !isNaN(Number(amount))
-      ? parseUnits(amount, spendDecimals)
-      : 0n;
+  const parsedAmount = amount && !isNaN(Number(amount))
+    ? parseUnits(amount, spendDecimals) : 0n;
 
   useEffect(() => { setStep("input"); setError(null); }, [amount, pool, side]);
 
-  // ── User balances ─────────────────────────────────────────────
-  const { data: nativeEthData, refetch: refetchEth } = useBalance({
-    address,
-    query: { enabled: !!address && isEthBuy },
-  });
-
+  // ── Balances ──────────────────────────────────────────────────
   const { data: spendBalance, refetch: refetchSpend } = useReadContract({
-    address: spendToken as `0x${string}`,
-    abi: erc20Abi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address && !isEthBuy },
+    address: spendToken, abi: erc20Abi, functionName: "balanceOf",
+    args: address ? [address] : undefined, query: { enabled: !!address },
   });
-
-  const displaySpendBalance = isEthBuy ? nativeEthData?.value : (spendBalance as bigint | undefined);
 
   const { data: triBalance, refetch: refetchTri } = useReadContract({
-    address: ADDRESSES.tri,
-    abi: trinityTokenAbi,
-    functionName: "balanceOf",
-    args: address ? [address] : undefined,
-    query: { enabled: !!address },
+    address: ADDRESSES.tri, abi: trinityTokenAbi, functionName: "balanceOf",
+    args: address ? [address] : undefined, query: { enabled: !!address },
   });
 
-  const refetchAll = useCallback(() => {
-    refetchSpend();
-    refetchTri();
-    refetchEth();
-  }, [refetchSpend, refetchTri, refetchEth]);
+  const { data: ethData } = useBalance({ address, query: { enabled: !!address } });
 
-  // ── Quote preview via V4 Quoter ──────────────────────────────
-  const [quoteOut, setQuoteOut] = useState<bigint | null>(null);
+  const refetchAll = useCallback(() => {
+    refetchSpend(); refetchTri();
+  }, [refetchSpend, refetchTri]);
+
+  // ── Quote preview ─────────────────────────────────────────────
   const triIs0 = isTriCurrency0(p.quoteAsset);
 
   useEffect(() => {
@@ -93,81 +102,66 @@ export function TradePanel() {
 
     const zeroForOne = side === "buy" ? !triIs0 : triIs0;
 
-    const quoteData = encodeFunctionData({
-      abi: [{ type: "function", name: "quoteExactInputSingle",
-        inputs: [{ type: "tuple", name: "params", components: [
-          { type: "tuple", name: "poolKey", components: [
-            { name: "currency0", type: "address" },
-            { name: "currency1", type: "address" },
-            { name: "fee", type: "uint24" },
-            { name: "tickSpacing", type: "int24" },
-            { name: "hooks", type: "address" },
-          ]},
-          { name: "zeroForOne", type: "bool" },
-          { name: "exactAmount", type: "uint128" },
-          { name: "hookData", type: "bytes" },
-        ]}],
-        outputs: [{ type: "uint256" }, { type: "uint256" }],
-        stateMutability: "nonpayable",
-      }],
+    publicClient.simulateContract({
+      address: ADDRESSES.quoter,
+      abi: QUOTER_ABI,
       functionName: "quoteExactInputSingle",
-      args: [{ poolKey: p.poolKey, zeroForOne, exactAmount: parsedAmount, hookData: "0x" }],
-    });
-
-    publicClient.call({ to: ADDRESSES.quoter, data: quoteData })
-      .then((result) => {
-        if (result.data && result.data.length >= 66) {
-          setQuoteOut(BigInt("0x" + result.data.slice(2, 66)));
-        }
-      })
-      .catch(() => setQuoteOut(null));
+      args: [{
+        poolKey: {
+          currency0: p.poolKey.currency0,
+          currency1: p.poolKey.currency1,
+          fee: p.poolKey.fee,
+          tickSpacing: p.poolKey.tickSpacing,
+          hooks: p.poolKey.hooks,
+        },
+        zeroForOne,
+        exactAmount: parsedAmount,
+        hookData: "0x",
+      }],
+    }).then((result) => {
+      setQuoteOut(result.result[0]);
+    }).catch(() => setQuoteOut(null));
   }, [parsedAmount, pool, side, publicClient, p.poolKey, triIs0]);
-
-  // ── Send + wait helper ────────────────────────────────────────
-  async function sendAndWait(to: `0x${string}`, data: `0x${string}`, value?: bigint) {
-    if (!walletClient || !publicClient) throw new Error("No wallet");
-    const hash = await walletClient.sendTransaction({
-      to, data, chain: walletClient.chain, account: walletClient.account,
-      value, gas: 500_000n,
-    });
-    const receipt = await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
-    if (receipt.status !== "success") throw new Error("Transaction reverted");
-    return hash;
-  }
 
   // ── Approve (ERC20 -> Permit2 -> Universal Router) ────────────
   async function handleApprove() {
-    if (parsedAmount === 0n || !address) return;
-    setLoading("Approving..."); setError(null);
+    if (parsedAmount === 0n || !address || !walletClient || !publicClient) return;
+    setLoading("Checking approvals..."); setError(null);
+
     try {
-      if (isEthBuy) {
-        // No approval needed for native ETH
-        setStep("approved");
-        return;
+      // Step 1: Check + approve token to Permit2
+      const permit2Allowance = await publicClient.readContract({
+        address: spendToken, abi: erc20Abi, functionName: "allowance",
+        args: [address, ADDRESSES.permit2],
+      });
+
+      if ((permit2Allowance as bigint) < parsedAmount) {
+        setLoading("Approving token...");
+        const hash = await walletClient.writeContract({
+          address: spendToken, abi: erc20Abi, functionName: "approve",
+          args: [ADDRESSES.permit2, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+          chain: walletClient.chain, account: walletClient.account,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
       }
 
-      const token = spendToken!;
-      const maxUint160 = (1n << 160n) - 1n;
-      const permit2Amount = parsedAmount > maxUint160 ? maxUint160 : parsedAmount;
-      const expiration = Math.floor(Date.now() / 1000) + 86400; // 24h
-
-      // Step 1: Approve token to Permit2 (standard ERC20 approve)
-      setLoading("Approving token...");
-      const approveData = encodeFunctionData({
-        abi: erc20Abi,
-        functionName: "approve",
-        args: [ADDRESSES.permit2, parsedAmount],
+      // Step 2: Check + approve Permit2 -> Universal Router
+      const [routerAllowance] = await publicClient.readContract({
+        address: ADDRESSES.permit2, abi: PERMIT2_ABI, functionName: "allowance",
+        args: [address, spendToken, ADDRESSES.universalRouter],
       });
-      await sendAndWait(token, approveData);
 
-      // Step 2: Grant Permit2 allowance to Universal Router
-      setLoading("Setting Permit2 allowance...");
-      const permit2Data = encodeFunctionData({
-        abi: permit2Abi,
-        functionName: "approve",
-        args: [token, ADDRESSES.universalRouter, permit2Amount, expiration],
-      });
-      await sendAndWait(ADDRESSES.permit2, permit2Data);
+      if (routerAllowance < parsedAmount) {
+        setLoading("Setting Permit2 allowance...");
+        const hash = await walletClient.writeContract({
+          address: ADDRESSES.permit2, abi: PERMIT2_ABI, functionName: "approve",
+          args: [spendToken, ADDRESSES.universalRouter,
+            BigInt("0xffffffffffffffffffffffffffffffff"), // uint160 max
+            Math.floor(Date.now() / 1000) + 86400 * 30], // 30 day expiry
+          chain: walletClient.chain, account: walletClient.account,
+        });
+        await publicClient.waitForTransactionReceipt({ hash });
+      }
 
       setStep("approved");
     } catch (e: unknown) {
@@ -177,145 +171,82 @@ export function TradePanel() {
     }
   }
 
-  // ── Execute swap via Universal Router ─────────────────────────
+  // ── Execute swap (Clanker pattern: SWAP_EXACT_IN_SINGLE + SETTLE_ALL + TAKE_ALL) ──
   async function handleTrade() {
     if (parsedAmount === 0n || !address || !walletClient || !publicClient) return;
     setLoading("Swapping..."); setError(null);
+
     try {
       const key = p.poolKey;
-      const triIs0 = isTriCurrency0(p.quoteAsset);
+      const zeroForOne = side === "buy" ? !triIs0 : triIs0;
+      const tokenIn = side === "buy" ? p.quoteAsset : ADDRESSES.tri;
+      const tokenOut = side === "buy" ? ADDRESSES.tri : p.quoteAsset;
 
-      // Determine swap direction
-      let zeroForOne: boolean;
-      let tokenIn: `0x${string}`;
-      let tokenOut: `0x${string}`;
-
-      if (side === "buy") {
-        tokenIn = p.quoteAsset;
-        tokenOut = ADDRESSES.tri;
-        zeroForOne = !triIs0;
-      } else {
-        tokenIn = ADDRESSES.tri;
-        tokenOut = p.quoteAsset;
-        zeroForOne = triIs0;
-      }
-
-      // Quote first to get expected output
-      setLoading("Getting quote...");
-      const quoteData = encodeFunctionData({
-        abi: [{ type: "function", name: "quoteExactInputSingle",
-          inputs: [{ type: "tuple", name: "params", components: [
-            { type: "tuple", name: "poolKey", components: [
-              { name: "currency0", type: "address" },
-              { name: "currency1", type: "address" },
-              { name: "fee", type: "uint24" },
-              { name: "tickSpacing", type: "int24" },
-              { name: "hooks", type: "address" },
-            ]},
-            { name: "zeroForOne", type: "bool" },
-            { name: "exactAmount", type: "uint128" },
-            { name: "hookData", type: "bytes" },
-          ]}],
-          outputs: [{ type: "uint256" }, { type: "uint256" }],
-          stateMutability: "nonpayable",
-        }],
-        functionName: "quoteExactInputSingle",
-        args: [{ poolKey: key, zeroForOne, exactAmount: parsedAmount, hookData: "0x" }],
-      });
-
+      // Get fresh quote for slippage
       let minAmountOut = 1n;
       try {
-        const quoteResult = await publicClient!.call({
-          to: ADDRESSES.quoter,
-          data: quoteData,
+        const result = await publicClient.simulateContract({
+          address: ADDRESSES.quoter, abi: QUOTER_ABI,
+          functionName: "quoteExactInputSingle",
+          args: [{ poolKey: key, zeroForOne, exactAmount: parsedAmount, hookData: "0x" }],
         });
-        if (quoteResult.data) {
-          const decoded = BigInt("0x" + quoteResult.data.slice(2, 66));
-          // Apply slippage: minOut = quoted * (10000 - slippageBps) / 10000
-          minAmountOut = decoded * BigInt(10000 - slippageBps) / 10000n;
-        }
+        const quoted = result.result[0];
+        minAmountOut = quoted * BigInt(10000 - slippageBps) / 10000n;
       } catch {
-        // Quoter failed — use 1n as fallback (no slippage protection)
-        console.warn("Quoter failed, proceeding without slippage protection");
+        console.warn("Quoter failed, using minOut=1");
       }
 
-      setLoading("Swapping...");
+      // V4 actions: SWAP_EXACT_IN_SINGLE(0x06) + SETTLE_ALL(0x0c) + TAKE_ALL(0x0f)
+      const actions = "0x060c0f" as `0x${string}`;
 
-      // V4_SWAP command = 0x10
-      const commands = "0x10" as `0x${string}`;
-
-      // Actions: SWAP_EXACT_IN_SINGLE(0x06), SETTLE(0x0b), TAKE(0x0e)
-      const actions = encodePacked(
-        ["uint8", "uint8", "uint8"],
-        [0x06, 0x0b, 0x0e]
+      const swapParams = encodeAbiParameters(
+        [{ type: "tuple", components: [
+          { type: "tuple", name: "poolKey", components: [
+            { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+            { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" },
+            { name: "hooks", type: "address" },
+          ]},
+          { name: "zeroForOne", type: "bool" },
+          { name: "amountIn", type: "uint128" },
+          { name: "amountOutMinimum", type: "uint128" },
+          { name: "hookData", type: "bytes" },
+        ]}],
+        [{ poolKey: key, zeroForOne, amountIn: parsedAmount, amountOutMinimum: minAmountOut, hookData: "0x" }]
       );
 
-      // Param 0: ExactInputSingleParams
-      const swapParam = encodeAbiParameters(
-        [{
-          type: "tuple",
-          components: [
-            { type: "tuple", name: "poolKey", components: [
-              { name: "currency0", type: "address" },
-              { name: "currency1", type: "address" },
-              { name: "fee", type: "uint24" },
-              { name: "tickSpacing", type: "int24" },
-              { name: "hooks", type: "address" },
-            ]},
-            { name: "zeroForOne", type: "bool" },
-            { name: "amountIn", type: "uint128" },
-            { name: "amountOutMinimum", type: "uint128" },
-            { name: "hookData", type: "bytes" },
-          ],
-        }],
-        [{
-          poolKey: {
-            currency0: key.currency0,
-            currency1: key.currency1,
-            fee: key.fee,
-            tickSpacing: key.tickSpacing,
-            hooks: key.hooks,
-          },
-          zeroForOne,
-          amountIn: parsedAmount,
-          amountOutMinimum: minAmountOut,
-          hookData: "0x",
-        }]
+      // SETTLE_ALL: (address currency, uint256 maxAmount)
+      const settleParams = encodeAbiParameters(
+        [{ type: "address" }, { type: "uint256" }],
+        [tokenIn, parsedAmount]
       );
 
-      // Param 1: SETTLE - pay input currency (amount=0 = full delta, payerIsUser=true)
-      const settleParam = encodeAbiParameters(
-        [{ type: "address" }, { type: "uint256" }, { type: "bool" }],
-        [tokenIn, 0n, true]
+      // TAKE_ALL: (address currency, uint256 minAmount)
+      const takeParams = encodeAbiParameters(
+        [{ type: "address" }, { type: "uint256" }],
+        [tokenOut, minAmountOut]
       );
 
-      // Param 2: TAKE - receive output currency (amount=0 = full delta)
-      const takeParam = encodeAbiParameters(
-        [{ type: "address" }, { type: "address" }, { type: "uint256" }],
-        [tokenOut, address, 0n]
-      );
-
-      // Wrap as abi.encode(bytes actions, bytes[] params) for V4_SWAP input
-      const v4SwapInput = encodeAbiParameters(
+      const v4Input = encodeAbiParameters(
         [{ type: "bytes" }, { type: "bytes[]" }],
-        [actions, [swapParam, settleParam, takeParam]]
+        [actions, [swapParams, settleParams, takeParams]]
       );
 
       const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
-      const data = encodeFunctionData({
-        abi: universalRouterAbi,
-        functionName: "execute",
-        args: [commands, [v4SwapInput], deadline],
+      const hash = await walletClient.sendTransaction({
+        to: ADDRESSES.universalRouter,
+        data: encodeFunctionData({
+          abi: UNIVERSAL_ROUTER_ABI,
+          functionName: "execute",
+          args: ["0x10" as `0x${string}`, [v4Input], deadline],
+        }),
+        value: 0n,
+        chain: walletClient.chain,
+        account: walletClient.account,
       });
 
-      // For ETH buys, send value
-      const value = isEthBuy ? parsedAmount : undefined;
-
-      await sendAndWait(ADDRESSES.universalRouter, data, value);
-
-      setAmount("");
-      setStep("input");
+      await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
+      setAmount(""); setStep("input");
       setTimeout(() => refetchAll(), 2000);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Trade failed");
@@ -328,18 +259,18 @@ export function TradePanel() {
   const fmt = (val: bigint | undefined, dec: number, dp = 4) =>
     val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "\u2014";
 
+  // For ETH pool, show note about needing WETH
+  const isEthPool = pool === "eth";
+
   return (
     <div className="space-y-6">
       {/* Pool selector */}
       <div className="flex gap-2">
         {(Object.keys(POOLS) as PoolId[]).map((id) => (
-          <button
-            key={id}
+          <button key={id}
             onClick={() => { setPool(id); setAmount(""); setStep("input"); }}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              pool === id
-                ? "text-white"
-                : "bg-[#16213e] text-[#8892a4] hover:text-white"
+              pool === id ? "text-white" : "bg-[#16213e] text-[#8892a4] hover:text-white"
             }`}
             style={pool === id ? { background: POOLS[id].color } : {}}
           >
@@ -353,41 +284,37 @@ export function TradePanel() {
         <button
           onClick={() => { setSide("buy"); setAmount(""); setStep("input"); }}
           className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-            side === "buy"
-              ? "bg-[#4ecca3] text-black"
-              : "bg-[#16213e] text-[#8892a4]"
+            side === "buy" ? "bg-[#4ecca3] text-black" : "bg-[#16213e] text-[#8892a4]"
           }`}
-        >
-          Buy
-        </button>
+        >Buy</button>
         <button
           onClick={() => { setSide("sell"); setAmount(""); setStep("input"); }}
           className={`flex-1 py-2 rounded-lg font-medium transition-colors ${
-            side === "sell"
-              ? "bg-[#e94560] text-white"
-              : "bg-[#16213e] text-[#8892a4]"
+            side === "sell" ? "bg-[#e94560] text-white" : "bg-[#16213e] text-[#8892a4]"
           }`}
-        >
-          Sell
-        </button>
+        >Sell</button>
       </div>
+
+      {/* WETH note for ETH pool */}
+      {isEthPool && side === "buy" && (
+        <div className="text-xs text-[#f0c040] bg-[#0d1117] rounded-lg p-2 border border-[#f0c040]/30">
+          This pool uses WETH. Wrap ETH to WETH first via{" "}
+          <a href="https://app.uniswap.org/swap?chain=base" target="_blank" rel="noopener noreferrer" className="underline">Uniswap</a>.
+        </div>
+      )}
 
       {/* Input */}
       <div className="bg-[#0d1117] rounded-lg p-4 border border-[#0f3460]">
         <div className="flex justify-between text-xs text-[#8892a4] mb-2">
           <span>You {side === "buy" ? "pay" : "sell"}</span>
           <span>
-            Balance: {fmt(displaySpendBalance, spendDecimals, 4)}{" "}
-            {spendSymbol}
+            Balance: {fmt(spendBalance as bigint | undefined, spendDecimals, 4)} {spendSymbol}
+            {isEthPool && side === "buy" && ethData ? ` (${fmt(ethData.value, 18, 4)} ETH)` : ""}
           </span>
         </div>
         <div className="flex gap-2 items-center">
-          <input
-            type="text"
-            inputMode="decimal"
-            placeholder="0.0"
-            value={amount}
-            onChange={(e) => setAmount(e.target.value)}
+          <input type="text" inputMode="decimal" placeholder="0.0"
+            value={amount} onChange={(e) => setAmount(e.target.value)}
             disabled={step !== "input"}
             className="flex-1 bg-transparent text-white text-2xl font-mono outline-none disabled:opacity-50"
           />
@@ -395,40 +322,30 @@ export function TradePanel() {
         </div>
       </div>
 
-      {/* Preview output + fee + slippage */}
+      {/* Preview + fee + slippage */}
       {parsedAmount > 0n && (
         <div className="bg-[#16213e] rounded-lg p-4 border border-[#0f3460] space-y-3">
           {quoteOut !== null && quoteOut > 0n && (
             <div>
-              <div className="text-xs text-[#8892a4] mb-1">
-                You {side === "buy" ? "receive" : "get back"}
-              </div>
+              <div className="text-xs text-[#8892a4] mb-1">You {side === "buy" ? "receive" : "get back"}</div>
               <div className="text-white text-xl font-mono">
-                {fmt(quoteOut, side === "buy" ? 18 : p.quoteDecimals, 4)}{" "}
-                {side === "buy" ? "TRI" : (pool === "eth" ? "ETH" : p.quoteSymbol)}
+                {fmt(quoteOut, outDecimals, 4)} {outSymbol}
               </div>
             </div>
           )}
           <div className="text-xs text-[#8892a4]">
             1% fee {side === "buy"
               ? `(${fmt(parsedAmount / 100n, spendDecimals, 4)} ${spendSymbol} to multisig)`
-              : "(1% TRI burned)"
-            }
+              : "(1% TRI burned)"}
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="text-[#8892a4]">Slippage:</span>
-            {[50, 100, 200].map((bps) => (
-              <button
-                key={bps}
-                onClick={() => setSlippageBps(bps)}
+            {[100, 200, 500].map((bps) => (
+              <button key={bps} onClick={() => setSlippageBps(bps)}
                 className={`px-2 py-0.5 rounded text-xs ${
-                  slippageBps === bps
-                    ? "bg-[#4e9af0] text-white"
-                    : "bg-[#0d1117] text-[#8892a4] hover:text-white"
+                  slippageBps === bps ? "bg-[#4e9af0] text-white" : "bg-[#0d1117] text-[#8892a4] hover:text-white"
                 }`}
-              >
-                {bps / 100}%
-              </button>
+              >{bps / 100}%</button>
             ))}
           </div>
         </div>
@@ -441,34 +358,20 @@ export function TradePanel() {
         </div>
       )}
 
-      {/* Action buttons */}
+      {/* Action */}
       {!isConnected ? (
-        <div className="text-center text-[#8892a4] py-4">
-          Connect wallet to trade
-        </div>
+        <div className="text-center text-[#8892a4] py-4">Connect wallet to trade</div>
       ) : step === "input" ? (
-        <button
-          onClick={handleApprove}
-          disabled={loading !== null || parsedAmount === 0n}
+        <button onClick={handleApprove} disabled={loading !== null || parsedAmount === 0n}
           className="w-full py-3 rounded-lg bg-[#f0c040] text-black font-medium disabled:opacity-50"
-        >
-          {loading || (isEthBuy
-            ? `Trade ${amount || "0"} ETH`
-            : `Approve ${amount || "0"} ${spendSymbol}`)}
-        </button>
-      ) : step === "approved" ? (
-        <button
-          onClick={handleTrade}
-          disabled={loading !== null}
+        >{loading || `Approve ${amount || "0"} ${spendSymbol}`}</button>
+      ) : (
+        <button onClick={handleTrade} disabled={loading !== null}
           className={`w-full py-3 rounded-lg font-medium disabled:opacity-50 ${
-            side === "buy"
-              ? "bg-[#4ecca3] text-black"
-              : "bg-[#e94560] text-white"
+            side === "buy" ? "bg-[#4ecca3] text-black" : "bg-[#e94560] text-white"
           }`}
-        >
-          {loading || `${side === "buy" ? "Buy" : "Sell"} TRI`}
-        </button>
-      ) : null}
+        >{loading || `${side === "buy" ? "Buy" : "Sell"} TRI`}</button>
+      )}
 
       {/* TRI balance */}
       {isConnected && triBalance !== undefined && (
