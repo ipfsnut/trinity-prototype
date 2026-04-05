@@ -83,6 +83,46 @@ export function TradePanel() {
     refetchEth();
   }, [refetchSpend, refetchTri, refetchEth]);
 
+  // ── Quote preview via V4 Quoter ──────────────────────────────
+  const [quoteOut, setQuoteOut] = useState<bigint | null>(null);
+  const triIs0 = isTriCurrency0(p.quoteAsset);
+
+  useEffect(() => {
+    setQuoteOut(null);
+    if (parsedAmount === 0n || !publicClient) return;
+
+    const zeroForOne = side === "buy" ? !triIs0 : triIs0;
+
+    const quoteData = encodeFunctionData({
+      abi: [{ type: "function", name: "quoteExactInputSingle",
+        inputs: [{ type: "tuple", name: "params", components: [
+          { type: "tuple", name: "poolKey", components: [
+            { name: "currency0", type: "address" },
+            { name: "currency1", type: "address" },
+            { name: "fee", type: "uint24" },
+            { name: "tickSpacing", type: "int24" },
+            { name: "hooks", type: "address" },
+          ]},
+          { name: "zeroForOne", type: "bool" },
+          { name: "exactAmount", type: "uint128" },
+          { name: "hookData", type: "bytes" },
+        ]}],
+        outputs: [{ type: "uint256" }, { type: "uint256" }],
+        stateMutability: "nonpayable",
+      }],
+      functionName: "quoteExactInputSingle",
+      args: [{ poolKey: p.poolKey, zeroForOne, exactAmount: parsedAmount, hookData: "0x" }],
+    });
+
+    publicClient.call({ to: ADDRESSES.quoter, data: quoteData })
+      .then((result) => {
+        if (result.data && result.data.length >= 66) {
+          setQuoteOut(BigInt("0x" + result.data.slice(2, 66)));
+        }
+      })
+      .catch(() => setQuoteOut(null));
+  }, [parsedAmount, pool, side, publicClient, p.poolKey, triIs0]);
+
   // ── Send + wait helper ────────────────────────────────────────
   async function sendAndWait(to: `0x${string}`, data: `0x${string}`, value?: bigint) {
     if (!walletClient || !publicClient) throw new Error("No wallet");
@@ -107,8 +147,12 @@ export function TradePanel() {
       }
 
       const token = spendToken!;
+      const maxUint160 = (1n << 160n) - 1n;
+      const permit2Amount = parsedAmount > maxUint160 ? maxUint160 : parsedAmount;
+      const expiration = Math.floor(Date.now() / 1000) + 86400; // 24h
 
-      // Step 1: Approve token to Permit2
+      // Step 1: Approve token to Permit2 (standard ERC20 approve)
+      setLoading("Approving token...");
       const approveData = encodeFunctionData({
         abi: erc20Abi,
         functionName: "approve",
@@ -117,10 +161,11 @@ export function TradePanel() {
       await sendAndWait(token, approveData);
 
       // Step 2: Grant Permit2 allowance to Universal Router
+      setLoading("Setting Permit2 allowance...");
       const permit2Data = encodeFunctionData({
         abi: permit2Abi,
         functionName: "approve",
-        args: [token, ADDRESSES.universalRouter, parsedAmount > 2n ** 160n - 1n ? 2n ** 160n - 1n : parsedAmount, Number(Math.floor(Date.now() / 1000) + 86400)],
+        args: [token, ADDRESSES.universalRouter, permit2Amount, expiration],
       });
       await sendAndWait(ADDRESSES.permit2, permit2Data);
 
@@ -283,8 +328,6 @@ export function TradePanel() {
   const fmt = (val: bigint | undefined, dec: number, dp = 4) =>
     val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "\u2014";
 
-  const outSymbol = side === "buy" ? "TRI" : (pool === "eth" ? "ETH" : p.quoteSymbol);
-
   return (
     <div className="space-y-6">
       {/* Pool selector */}
@@ -352,9 +395,20 @@ export function TradePanel() {
         </div>
       </div>
 
-      {/* Fee + slippage info */}
+      {/* Preview output + fee + slippage */}
       {parsedAmount > 0n && (
-        <div className="bg-[#16213e] rounded-lg p-3 border border-[#0f3460] space-y-2">
+        <div className="bg-[#16213e] rounded-lg p-4 border border-[#0f3460] space-y-3">
+          {quoteOut !== null && quoteOut > 0n && (
+            <div>
+              <div className="text-xs text-[#8892a4] mb-1">
+                You {side === "buy" ? "receive" : "get back"}
+              </div>
+              <div className="text-white text-xl font-mono">
+                {fmt(quoteOut, side === "buy" ? 18 : p.quoteDecimals, 4)}{" "}
+                {side === "buy" ? "TRI" : (pool === "eth" ? "ETH" : p.quoteSymbol)}
+              </div>
+            </div>
+          )}
           <div className="text-xs text-[#8892a4]">
             1% fee {side === "buy"
               ? `(${fmt(parsedAmount / 100n, spendDecimals, 4)} ${spendSymbol} to multisig)`
