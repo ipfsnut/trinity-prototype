@@ -112,8 +112,8 @@ export const POOLS: Record<
     color: "#4ecca3",
   },
   eth: {
-    label: "TRI / WETH",
-    quoteSymbol: "WETH",
+    label: "TRI / ETH",
+    quoteSymbol: "ETH",
     quoteAsset: ADDRESSES.weth,
     poolKey: makePoolKey(ADDRESSES.weth),
     quoteDecimals: 18,
