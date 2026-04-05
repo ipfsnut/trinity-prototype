@@ -67,9 +67,9 @@ export function TradePanel() {
   const p = POOLS[pool];
   const spendToken = side === "buy" ? p.quoteAsset : ADDRESSES.tri;
   const spendDecimals = side === "buy" ? p.quoteDecimals : 18;
-  const spendSymbol = side === "buy" ? p.quoteSymbol : "TRI";
+  const spendSymbol = side === "buy" ? p.quoteSymbol : "TRIN";
   const outDecimals = side === "buy" ? 18 : p.quoteDecimals;
-  const outSymbol = side === "buy" ? "TRI" : p.quoteSymbol;
+  const outSymbol = side === "buy" ? "TRIN" : p.quoteSymbol;
 
   const parsedAmount = amount && !isNaN(Number(amount))
     ? parseUnits(amount, spendDecimals) : 0n;
@@ -397,7 +397,7 @@ export function TradePanel() {
           <div className="text-xs text-[#8892a4]">
             1% fee {side === "buy"
               ? `(${fmt(parsedAmount / 100n, spendDecimals, 4)} ${spendSymbol} to multisig)`
-              : "(1% TRI burned)"}
+              : "(1% TRIN burned)"}
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="text-[#8892a4]">Slippage:</span>
@@ -431,13 +431,13 @@ export function TradePanel() {
           className={`w-full py-3 rounded-lg font-medium disabled:opacity-50 ${
             side === "buy" ? "bg-[#4ecca3] text-black" : "bg-[#e94560] text-white"
           }`}
-        >{loading || `${side === "buy" ? "Buy" : "Sell"} TRI`}</button>
+        >{loading || `${side === "buy" ? "Buy" : "Sell"} TRIN`}</button>
       )}
 
-      {/* TRI balance */}
+      {/* TRIN balance */}
       {isConnected && triBalance !== undefined && (
         <div className="text-center text-sm text-[#8892a4]">
-          Your TRI: <span className="text-white font-mono">{fmt(triBalance, 18, 2)}</span>
+          Your TRIN: <span className="text-white font-mono">{fmt(triBalance, 18, 2)}</span>
         </div>
       )}
     </div>

@@ -1,11 +1,11 @@
 import { parseAbi } from "viem";
 
-// ── V4 Deployed addresses (Base mainnet) ────────────────────────────
+// ── V5 Deployed addresses (Base mainnet) ────────────────────────────
 export const ADDRESSES = {
-  tri: "0x20c0b4e3dDBF621D0933fe50DF1EcfD7a32c115d" as `0x${string}`,
-  hook: "0x2B62bDccB8602fEe9aDD46aE2B182d6e17a940c8" as `0x${string}`,
-  stakingHub: "0x3EDfB979944487865dd247ff7CC2F457A2a37B9E" as `0x${string}`,
-  wethGauge: "0xD93492c51029512Bc1E02Ee5c904A20B1cf82dc2" as `0x${string}`,
+  tri: "0x1313b1B3387Ee849d549d9c9280148B237a375ae" as `0x${string}`,
+  hook: "0x1427050C1b5886471CA7ce656aB6ec22E86e40c8" as `0x${string}`,
+  stakingHub: "0x61219b5F2a59A6F331Ce5362b30c8277Cb748cf8" as `0x${string}`,
+  wethGauge: "0xe16e16CD6bc461ce5f0844ddD324f7b06AA3A2E2" as `0x${string}`,
   // V4 infrastructure on Base
   universalRouter: "0x6ff5693b99212da76ad316178a184ab56d299b43" as `0x${string}`,
   permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3" as `0x${string}`,
@@ -104,7 +104,7 @@ export const POOLS: Record<
   }
 > = {
   usdc: {
-    label: "TRI / USDC",
+    label: "TRIN /USDC",
     quoteSymbol: "USDC",
     quoteAsset: ADDRESSES.usdc,
     poolKey: makePoolKey(ADDRESSES.usdc),
@@ -112,7 +112,7 @@ export const POOLS: Record<
     color: "#4ecca3",
   },
   eth: {
-    label: "TRI / ETH",
+    label: "TRIN /ETH",
     quoteSymbol: "ETH",
     quoteAsset: ADDRESSES.weth,
     poolKey: makePoolKey(ADDRESSES.weth),
@@ -120,7 +120,7 @@ export const POOLS: Record<
     color: "#4e9af0",
   },
   chaoslp: {
-    label: "TRI / $CHAOSLP",
+    label: "TRIN /$CHAOSLP",
     quoteSymbol: "$CHAOSLP",
     quoteAsset: ADDRESSES.chaoslp,
     poolKey: makePoolKey(ADDRESSES.chaoslp),

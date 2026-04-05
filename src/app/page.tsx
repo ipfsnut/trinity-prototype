@@ -36,15 +36,15 @@ export default function Home() {
       <main className="flex-1 flex items-start justify-center pt-12 px-4">
         <div className="w-full max-w-md">
           <div className="mb-6">
-            <h1 className="text-2xl font-bold text-white">Trade $TRI</h1>
+            <h1 className="text-2xl font-bold text-white">Trade $TRIN</h1>
             <p className="text-sm text-[#8892a4]">
               Three curves. 1% fee. Every sell burns.
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs text-[#8892a4] bg-[#0d1117] rounded-lg px-3 py-2 border border-[#0f3460]">
-              <span>TRI:</span>
-              <code className="text-[#4ecca3] font-mono">0x20c0b4e3dDBF621D0933fe50DF1EcfD7a32c115d</code>
+              <span>TRIN:</span>
+              <code className="text-[#4ecca3] font-mono">0x1313b1B3387Ee849d549d9c9280148B237a375ae</code>
               <a
-                href="https://basescan.org/token/0x20c0b4e3dDBF621D0933fe50DF1EcfD7a32c115d"
+                href="https://basescan.org/token/0x1313b1B3387Ee849d549d9c9280148B237a375ae"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="text-[#4e9af0] hover:underline ml-auto"
