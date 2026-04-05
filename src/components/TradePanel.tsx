@@ -129,20 +129,33 @@ export function TradePanel() {
     setLoading("Checking approvals..."); setError(null);
 
     try {
-      // Step 1: Check + approve token to Permit2
-      const permit2Allowance = await publicClient.readContract({
-        address: spendToken, abi: erc20Abi, functionName: "allowance",
-        args: [address, ADDRESSES.permit2],
-      });
+      // Native ETH buys: no approval needed
+      if (pool === "eth" && side === "buy") {
+        setStep("approved");
+        setLoading(null);
+        return;
+      }
 
-      if ((permit2Allowance as bigint) < parsedAmount) {
-        setLoading("Approving token...");
-        const hash = await walletClient.writeContract({
-          address: spendToken, abi: erc20Abi, functionName: "approve",
-          args: [ADDRESSES.permit2, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
-          chain: walletClient.chain, account: walletClient.account,
+      // ChaosLP has infinite Permit2 allowance built-in (Permit2AllowanceIsFixedAtInfinity)
+      // — calling approve() on ChaosLP reverts, so skip the ERC20 → Permit2 step entirely
+      const skipErc20Approve = spendToken.toLowerCase() === ADDRESSES.chaoslp.toLowerCase();
+
+      // Step 1: Check + approve token to Permit2
+      if (!skipErc20Approve) {
+        const permit2Allowance = await publicClient.readContract({
+          address: spendToken, abi: erc20Abi, functionName: "allowance",
+          args: [address, ADDRESSES.permit2],
         });
-        await publicClient.waitForTransactionReceipt({ hash });
+
+        if ((permit2Allowance as bigint) < parsedAmount) {
+          setLoading("Approving token...");
+          const hash = await walletClient.writeContract({
+            address: spendToken, abi: erc20Abi, functionName: "approve",
+            args: [ADDRESSES.permit2, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+            chain: walletClient.chain, account: walletClient.account,
+          });
+          await publicClient.waitForTransactionReceipt({ hash });
+        }
       }
 
       // Step 2: Check + approve Permit2 -> Universal Router
@@ -196,8 +209,8 @@ export function TradePanel() {
         console.warn("Quoter failed, using minOut=1");
       }
 
-      // V4 actions: SWAP_EXACT_IN_SINGLE(0x06) + SETTLE_ALL(0x0c) + TAKE_ALL(0x0f)
-      const actions = "0x060c0f" as `0x${string}`;
+      const isNativeEthBuy = pool === "eth" && side === "buy";
+      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
 
       const swapParams = encodeAbiParameters(
         [{ type: "tuple", components: [
@@ -214,35 +227,83 @@ export function TradePanel() {
         [{ poolKey: key, zeroForOne, amountIn: parsedAmount, amountOutMinimum: minAmountOut, hookData: "0x" }]
       );
 
-      // SETTLE_ALL: (address currency, uint256 maxAmount)
-      const settleParams = encodeAbiParameters(
-        [{ type: "address" }, { type: "uint256" }],
-        [tokenIn, parsedAmount]
-      );
+      let commands: `0x${string}`;
+      let inputs: `0x${string}`[];
+      let txValue: bigint;
 
-      // TAKE_ALL: (address currency, uint256 minAmount)
-      const takeParams = encodeAbiParameters(
-        [{ type: "address" }, { type: "uint256" }],
-        [tokenOut, minAmountOut]
-      );
+      if (isNativeEthBuy) {
+        // Native ETH buy: WRAP_ETH (0x0b) + V4_SWAP (0x10)
+        // WRAP_ETH wraps msg.value to WETH, held by the router
+        // V4_SWAP uses SETTLE (0x0b) with payerIsUser=false so the router
+        // settles from its own WETH balance (not Permit2 pull from user)
+        const ADDRESS_THIS = "0x0000000000000000000000000000000000000002" as `0x${string}`;
+        const wrapInput = encodeAbiParameters(
+          [{ type: "address" }, { type: "uint256" }],
+          [ADDRESS_THIS, parsedAmount]
+        );
 
-      const v4Input = encodeAbiParameters(
-        [{ type: "bytes" }, { type: "bytes[]" }],
-        [actions, [swapParams, settleParams, takeParams]]
-      );
+        // Actions: SWAP_EXACT_IN_SINGLE(0x06) + SETTLE(0x0b) + TAKE_ALL(0x0f)
+        const actions = "0x060b0f" as `0x${string}`;
 
-      const deadline = BigInt(Math.floor(Date.now() / 1000) + 1200);
+        // SETTLE: (address currency, uint256 amount, bool payerIsUser)
+        // payerIsUser=false — use router's WETH from WRAP_ETH
+        const settleParams = encodeAbiParameters(
+          [{ type: "address" }, { type: "uint256" }, { type: "bool" }],
+          [tokenIn, 0n, false]
+        );
+
+        // TAKE_ALL: (address currency, uint256 minAmount)
+        const takeParams = encodeAbiParameters(
+          [{ type: "address" }, { type: "uint256" }],
+          [tokenOut, minAmountOut]
+        );
+
+        const v4Input = encodeAbiParameters(
+          [{ type: "bytes" }, { type: "bytes[]" }],
+          [actions, [swapParams, settleParams, takeParams]]
+        );
+
+        commands = "0x0b10";
+        inputs = [wrapInput, v4Input];
+        txValue = parsedAmount;
+      } else {
+        // ERC20 swap: V4_SWAP only (0x10)
+        // SETTLE_ALL(0x0c) pulls from user via Permit2, TAKE_ALL(0x0f) sends to user
+        const actions = "0x060c0f" as `0x${string}`;
+
+        // SETTLE_ALL: (address currency, uint256 maxAmount)
+        const settleParams = encodeAbiParameters(
+          [{ type: "address" }, { type: "uint256" }],
+          [tokenIn, parsedAmount]
+        );
+
+        // TAKE_ALL: (address currency, uint256 minAmount)
+        const takeParams = encodeAbiParameters(
+          [{ type: "address" }, { type: "uint256" }],
+          [tokenOut, minAmountOut]
+        );
+
+        const v4Input = encodeAbiParameters(
+          [{ type: "bytes" }, { type: "bytes[]" }],
+          [actions, [swapParams, settleParams, takeParams]]
+        );
+
+        commands = "0x10";
+        inputs = [v4Input];
+        txValue = 0n;
+      }
 
       const hash = await walletClient.sendTransaction({
         to: ADDRESSES.universalRouter,
         data: encodeFunctionData({
           abi: UNIVERSAL_ROUTER_ABI,
           functionName: "execute",
-          args: ["0x10" as `0x${string}`, [v4Input], deadline],
+          args: [commands, inputs, deadline],
         }),
-        value: 0n,
+        value: txValue,
         chain: walletClient.chain,
         account: walletClient.account,
+        gas: 500_000n,
       });
 
       await publicClient.waitForTransactionReceipt({ hash, timeout: 60_000 });
@@ -295,11 +356,10 @@ export function TradePanel() {
         >Sell</button>
       </div>
 
-      {/* WETH note for ETH pool */}
+      {/* ETH pool note */}
       {isEthPool && side === "buy" && (
-        <div className="text-xs text-[#f0c040] bg-[#0d1117] rounded-lg p-2 border border-[#f0c040]/30">
-          This pool uses WETH. Wrap ETH to WETH first via{" "}
-          <a href="https://app.uniswap.org/swap?chain=base" target="_blank" rel="noopener noreferrer" className="underline">Uniswap</a>.
+        <div className="text-xs text-[#4ecca3] bg-[#0d1117] rounded-lg p-2 border border-[#4ecca3]/30">
+          Send native ETH — automatically wrapped to WETH for the swap.
         </div>
       )}
 
@@ -308,8 +368,9 @@ export function TradePanel() {
         <div className="flex justify-between text-xs text-[#8892a4] mb-2">
           <span>You {side === "buy" ? "pay" : "sell"}</span>
           <span>
-            Balance: {fmt(spendBalance as bigint | undefined, spendDecimals, 4)} {spendSymbol}
-            {isEthPool && side === "buy" && ethData ? ` (${fmt(ethData.value, 18, 4)} ETH)` : ""}
+            Balance: {isEthPool && side === "buy"
+            ? `${fmt(ethData?.value, 18, 4)} ETH`
+            : `${fmt(spendBalance as bigint | undefined, spendDecimals, 4)} ${spendSymbol}`}
           </span>
         </div>
         <div className="flex gap-2 items-center">
