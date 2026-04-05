@@ -7,16 +7,16 @@ export default function DocsPage() {
       href: "/docs-trinity.html",
       description: "V5 hook architecture, fee model, burn mechanics, cross-pool arb dynamics, deployed addresses.",
     },
-    {
-      title: "Implementation (V1 Reference)",
-      href: "/docs-implementation.html",
-      description: "Original technical evaluation, contract params, curve math derivations.",
-    },
-    {
-      title: "Curves",
-      href: "/docs-curves.html",
-      description: "Interactive charts — V1 (uniform) and V2 (differentiated) curve visualizations.",
-    },
+    // {
+    //   title: "Implementation (V1 Reference)",
+    //   href: "/docs-implementation.html",
+    //   description: "Original technical evaluation, contract params, curve math derivations.",
+    // },
+    // {
+    //   title: "Curves",
+    //   href: "/docs-curves.html",
+    //   description: "Interactive charts — V1 (uniform) and V2 (differentiated) curve visualizations.",
+    // },
     {
       title: "Contracts (Solidity)",
       href: "https://github.com/ipfsnut/trinity-prototype/tree/main/contracts",
