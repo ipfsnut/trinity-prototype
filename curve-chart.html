@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Trinity V6 — Perpetual Arb Engine</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, BlinkMacSystemFont, 'SF Mono', monospace; padding: 24px; }
+  h1 { font-size: 18px; color: #e6edf3; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #8b949e; margin-bottom: 24px; }
+  .charts { display: flex; flex-direction: column; gap: 32px; max-width: 1000px; }
+  .chart-row { display: flex; gap: 24px; }
+  .chart-box { flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .chart-box h2 { font-size: 14px; margin-bottom: 2px; }
+  .chart-box .meta { font-size: 11px; color: #8b949e; margin-bottom: 12px; }
+  canvas { width: 100%; height: 260px; display: block; }
+  .combined-box { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .combined-box h2 { font-size: 14px; margin-bottom: 2px; }
+  .combined-box .meta { font-size: 11px; color: #8b949e; margin-bottom: 12px; }
+  .combined-box canvas { height: 340px; }
+  .legend { display: flex; gap: 20px; margin-top: 10px; font-size: 12px; }
+  .legend-item { display: flex; align-items: center; gap: 6px; }
+  .legend-dot { width: 10px; height: 10px; border-radius: 2px; }
+  .stats { display: flex; gap: 24px; margin-top: 24px; }
+  .stat-card { flex: 1; background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; }
+  .stat-card h3 { font-size: 12px; color: #8b949e; margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card .val { font-size: 20px; color: #e6edf3; font-weight: 600; }
+  .stat-card .detail { font-size: 11px; color: #8b949e; margin-top: 4px; }
+  .arb-section { background: #161b22; border: 1px solid #30363d; border-radius: 8px; padding: 16px; margin-top: 24px; }
+  .arb-section h2 { font-size: 14px; margin-bottom: 12px; }
+  .arb-section canvas { height: 240px; }
+</style>
+</head>
+<body>
+
+<h1>Trinity V6 — Perpetual Arb Engine</h1>
+<p class="subtitle">$25K starting FDV. Three curves, three shapes. The gap between them drives arb volume and fees forever.</p>
+
+<div class="charts">
+  <!-- Combined overlay -->
+  <div class="combined-box">
+    <h2>All Three Curves — Overlay</h2>
+    <div class="meta">All start at $0.000025 with shared steep ignition. Then USDC flattens (anchor), ChaosLP stays steep (volatility). Gap = arb profit.</div>
+    <canvas id="combined"></canvas>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-dot" style="background:#4ecca3"></div> USDC — 450M, fast decel (anchor)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#4e9af0"></div> WETH — 297M, medium decel (relay)</div>
+      <div class="legend-item"><div class="legend-dot" style="background:#e94560"></div> ChaosLP — 153M, slow decel (volatility)</div>
+    </div>
+  </div>
+
+  <!-- Individual pools -->
+  <div class="chart-row">
+    <div class="chart-box">
+      <h2 style="color:#4ecca3">USDC — Deep Anchor (450M TRI, 16 bands)</h2>
+      <div class="meta">Shared ignition → fast decel → flat cruising. 327,612x. Never graduates.</div>
+      <canvas id="usdc"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2 style="color:#4e9af0">WETH — Medium Relay (297M TRI, 15 bands)</h2>
+      <div class="meta">Shared ignition → medium decel. 12,154x. Practically permanent.</div>
+      <canvas id="weth"></canvas>
+    </div>
+    <div class="chart-box">
+      <h2 style="color:#e94560">ChaosLP — Volatility Engine (153M TRI, 15 bands)</h2>
+      <div class="meta">Shared ignition → slow decel → stays steep. 1,045x. The arb pump.</div>
+      <canvas id="chaoslp"></canvas>
+    </div>
+  </div>
+
+  <!-- Arb spread -->
+  <div class="arb-section">
+    <h2>Arb Spread — Price Difference Between Cheapest & Most Expensive Pool</h2>
+    <canvas id="arb"></canvas>
+    <div class="meta" style="margin-top:8px">The shaded area represents the arb opportunity. Wider = more profit per cycle. Every arb pays 2% in fees (1% per leg).</div>
+  </div>
+</div>
+
+<div class="stats">
+  <div class="stat-card">
+    <h3>Base Price</h3>
+    <div class="val">$0.000025</div>
+    <div class="detail">FDV: $25K (all pools)</div>
+  </div>
+  <div class="stat-card">
+    <h3>Ignition Band</h3>
+    <div class="val">1,200 ticks</div>
+    <div class="detail">Shared across all pools. $10 moves the price.</div>
+  </div>
+  <div class="stat-card">
+    <h3>Curve Lengths</h3>
+    <div class="val">1K – 328Kx</div>
+    <div class="detail">ChaosLP 1,045x / WETH 12,154x / USDC 327,612x</div>
+  </div>
+  <div class="stat-card">
+    <h3>Fee per Arb Cycle</h3>
+    <div class="val">2%</div>
+    <div class="detail">1% buy leg + 1% sell leg → stakers + treasury</div>
+  </div>
+</div>
+
+<script>
+// Band width schedules — deceleration curves. All start with 1200-tick ignition.
+// USDC: fast decel → deep anchor (450M TRI)
+const USDC_BANDS = [1200, 2000, 3400, 6800, 6800, 6800, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000, 10000];
+// WETH: medium decel → relay (297M TRI)
+const WETH_BANDS = [1200, 2000, 3400, 3400, 3400, 3400, 6800, 6800, 6800, 6800, 10000, 10000, 10000, 10000, 10000];
+// ChaosLP: slow decel → stays steep (153M TRI)
+const CLP_BANDS  = [1200, 2000, 2000, 3400, 3400, 3400, 3400, 3400, 3400, 3400, 6800, 6800, 6800, 10000, 10000];
+
+const BASE_PRICE = 0.000025;
+
+function bandsToCurve(bandWidths) {
+  // Each band's price multiplier: 1.0001^width
+  // Build cumulative price at each band boundary
+  const points = [{ supply: 0, price: BASE_PRICE }];
+  let cumulativePrice = BASE_PRICE;
+  const totalBands = bandWidths.length;
+
+  for (let i = 0; i < totalBands; i++) {
+    const mult = Math.pow(1.0001, bandWidths[i]);
+    cumulativePrice *= mult;
+    // Supply fraction: assume roughly equal TRI per band for simplicity,
+    // but wider bands actually hold more TRI (more tick range = more tokens sold).
+    // Approximate: supply consumed per band ∝ band width (wider = more supply sold)
+    points.push({
+      supply: points[points.length - 1].supply + bandWidths[i],
+      price: cumulativePrice
+    });
+  }
+
+  // Normalize supply to 0-100%
+  const maxSupply = points[points.length - 1].supply;
+  return points.map(p => ({ pct: (p.supply / maxSupply) * 100, price: p.price }));
+}
+
+function interpolateCurve(points, numSamples) {
+  // Linear interpolation for smooth rendering
+  const result = [];
+  for (let i = 0; i < numSamples; i++) {
+    const pct = (i / (numSamples - 1)) * 100;
+    // Find surrounding points
+    let lo = points[0], hi = points[points.length - 1];
+    for (let j = 0; j < points.length - 1; j++) {
+      if (pct >= points[j].pct && pct <= points[j + 1].pct) {
+        lo = points[j];
+        hi = points[j + 1];
+        break;
+      }
+    }
+    const t = hi.pct === lo.pct ? 0 : (pct - lo.pct) / (hi.pct - lo.pct);
+    // Interpolate in log space for smoother curve
+    const logPrice = Math.log(lo.price) + t * (Math.log(hi.price) - Math.log(lo.price));
+    result.push({ pct, price: Math.exp(logPrice) });
+  }
+  return result;
+}
+
+const usdcCurve = bandsToCurve(USDC_BANDS);
+const wethCurve = bandsToCurve(WETH_BANDS);
+const clpCurve  = bandsToCurve(CLP_BANDS);
+
+const SAMPLES = 200;
+const usdcSmooth = interpolateCurve(usdcCurve, SAMPLES);
+const wethSmooth = interpolateCurve(wethCurve, SAMPLES);
+const clpSmooth  = interpolateCurve(clpCurve, SAMPLES);
+
+function drawChart(canvasId, curves, options = {}) {
+  const canvas = document.getElementById(canvasId);
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width - 32;
+  const h = parseInt(getComputedStyle(canvas).height);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 20, right: 20, bottom: 36, left: 65 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  // Find global max price across all curves
+  let maxPrice = 0;
+  curves.forEach(c => c.data.forEach(p => { if (p.price > maxPrice) maxPrice = p.price; }));
+  // Use log scale
+  const minLog = Math.log10(BASE_PRICE);
+  const maxLog = Math.log10(maxPrice * 1.15);
+
+  function x(pct) { return pad.left + (pct / 100) * cw; }
+  function y(price) {
+    const logP = Math.log10(Math.max(price, BASE_PRICE * 0.5));
+    return pad.top + ch - ((logP - minLog) / (maxLog - minLog)) * ch;
+  }
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+
+  // Y-axis grid (log scale)
+  const yTicks = [0.000025, 0.0001, 0.0003, 0.001, 0.003, 0.01, 0.03, 0.07];
+  yTicks.forEach(tick => {
+    if (tick > maxPrice * 1.1) return;
+    const yy = y(tick);
+    if (yy < pad.top || yy > pad.top + ch) return;
+    ctx.beginPath();
+    ctx.moveTo(pad.left, yy);
+    ctx.lineTo(pad.left + cw, yy);
+    ctx.stroke();
+
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    const label = tick >= 0.001 ? '$' + tick.toFixed(3) : '$' + tick.toFixed(6).replace(/0+$/, '');
+    ctx.fillText(label, pad.left - 8, yy + 3);
+  });
+
+  // X-axis grid
+  [0, 20, 40, 60, 80, 100].forEach(pct => {
+    const xx = x(pct);
+    ctx.beginPath();
+    ctx.strokeStyle = '#21262d';
+    ctx.moveTo(xx, pad.top);
+    ctx.lineTo(xx, pad.top + ch);
+    ctx.stroke();
+
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(pct + '%', xx, pad.top + ch + 16);
+  });
+
+  // X-axis label
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Supply Sold →', pad.left + cw / 2, pad.top + ch + 32);
+
+  // Discount zone shading
+  if (options.discountPct) {
+    ctx.fillStyle = 'rgba(78, 204, 163, 0.06)';
+    ctx.fillRect(pad.left, pad.top, (options.discountPct / 100) * cw, ch);
+    ctx.fillStyle = '#4ecca340';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ignition', x(options.discountPct / 2), pad.top + 14);
+  }
+
+  // Draw curves
+  curves.forEach(curve => {
+    ctx.beginPath();
+    ctx.strokeStyle = curve.color;
+    ctx.lineWidth = 2;
+    curve.data.forEach((p, i) => {
+      const px = x(p.pct);
+      const py = y(p.price);
+      if (i === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    });
+    ctx.stroke();
+
+    // Fill under curve
+    if (options.fill) {
+      ctx.lineTo(x(curve.data[curve.data.length - 1].pct), pad.top + ch);
+      ctx.lineTo(x(0), pad.top + ch);
+      ctx.closePath();
+      ctx.fillStyle = curve.color.slice(0, 7) + '15';
+      ctx.fill();
+    }
+
+    // Band boundary dots (original points, not interpolated)
+    if (curve.points) {
+      curve.points.forEach((p, i) => {
+        if (i === 0) return;
+        ctx.beginPath();
+        ctx.arc(x(p.pct), y(p.price), 3, 0, Math.PI * 2);
+        ctx.fillStyle = curve.color;
+        ctx.fill();
+      });
+    }
+  });
+}
+
+// Individual charts
+drawChart('usdc', [{
+  data: usdcSmooth, points: usdcCurve, color: '#4ecca3'
+}], { fill: true, discountPct: usdcCurve[1].pct });
+
+drawChart('weth', [{
+  data: wethSmooth, points: wethCurve, color: '#4e9af0'
+}], { fill: true, discountPct: wethCurve[1].pct });
+
+drawChart('chaoslp', [{
+  data: clpSmooth, points: clpCurve, color: '#e94560'
+}], { fill: true, discountPct: clpCurve[1].pct });
+
+// Combined overlay
+drawChart('combined', [
+  { data: usdcSmooth, points: usdcCurve, color: '#4ecca3' },
+  { data: wethSmooth, points: wethCurve, color: '#4e9af0' },
+  { data: clpSmooth, points: clpCurve, color: '#e94560' },
+], { fill: false });
+
+// Arb spread chart
+function drawArbChart() {
+  const canvas = document.getElementById('arb');
+  const rect = canvas.parentElement.getBoundingClientRect();
+  const dpr = window.devicePixelRatio || 1;
+  const w = rect.width - 32;
+  const h = parseInt(getComputedStyle(canvas).height);
+  canvas.width = w * dpr;
+  canvas.height = h * dpr;
+  canvas.style.width = w + 'px';
+  canvas.style.height = h + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top: 20, right: 20, bottom: 36, left: 65 };
+  const cw = w - pad.left - pad.right;
+  const ch = h - pad.top - pad.bottom;
+
+  // Compute spread at each supply % point
+  // Use the shorter curve (ChaosLP = 12 bands) as limit
+  const spreads = [];
+  for (let i = 0; i < SAMPLES; i++) {
+    const pct = (i / (SAMPLES - 1)) * 100;
+    const uP = usdcSmooth[i].price;
+    const wP = wethSmooth[i].price;
+    const cP = clpSmooth[i].price;
+    const maxP = Math.max(uP, wP, cP);
+    const minP = Math.min(uP, wP, cP);
+    const spreadPct = ((maxP - minP) / minP) * 100;
+    spreads.push({ pct, spread: spreadPct });
+  }
+
+  const maxSpread = Math.max(...spreads.map(s => s.spread)) * 1.1;
+
+  function x(pct) { return pad.left + (pct / 100) * cw; }
+  function y(spread) { return pad.top + ch - (spread / maxSpread) * ch; }
+
+  // Grid
+  ctx.strokeStyle = '#21262d';
+  ctx.lineWidth = 1;
+  [0, 20, 40, 60, 80, 100].forEach(pct => {
+    const xx = x(pct);
+    ctx.beginPath();
+    ctx.moveTo(xx, pad.top);
+    ctx.lineTo(xx, pad.top + ch);
+    ctx.stroke();
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText(pct + '%', xx, pad.top + ch + 16);
+  });
+
+  // Y grid
+  for (let s = 0; s <= maxSpread; s += 20) {
+    const yy = y(s);
+    ctx.beginPath();
+    ctx.strokeStyle = '#21262d';
+    ctx.moveTo(pad.left, yy);
+    ctx.lineTo(pad.left + cw, yy);
+    ctx.stroke();
+    ctx.fillStyle = '#8b949e';
+    ctx.font = '10px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(Math.round(s) + '%', pad.left - 8, yy + 3);
+  }
+
+  ctx.fillStyle = '#8b949e';
+  ctx.font = '10px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('Supply Sold →', pad.left + cw / 2, pad.top + ch + 32);
+
+  // Fill area
+  ctx.beginPath();
+  spreads.forEach((s, i) => {
+    const px = x(s.pct);
+    const py = y(s.spread);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.lineTo(x(100), y(0));
+  ctx.lineTo(x(0), y(0));
+  ctx.closePath();
+  ctx.fillStyle = 'rgba(233, 69, 96, 0.15)';
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#e94560';
+  ctx.lineWidth = 2;
+  spreads.forEach((s, i) => {
+    const px = x(s.pct);
+    const py = y(s.spread);
+    if (i === 0) ctx.moveTo(px, py);
+    else ctx.lineTo(px, py);
+  });
+  ctx.stroke();
+
+  // Label peak
+  const peak = spreads.reduce((a, b) => a.spread > b.spread ? a : b);
+  ctx.fillStyle = '#e94560';
+  ctx.font = '11px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText('peak: ' + Math.round(peak.spread) + '% spread', x(peak.pct), y(peak.spread) - 10);
+}
+
+drawArbChart();
+
+// Redraw on resize
+window.addEventListener('resize', () => {
+  drawChart('usdc', [{ data: usdcSmooth, points: usdcCurve, color: '#4ecca3' }], { fill: true, discountPct: usdcCurve[1].pct });
+  drawChart('weth', [{ data: wethSmooth, points: wethCurve, color: '#4e9af0' }], { fill: true, discountPct: wethCurve[1].pct });
+  drawChart('chaoslp', [{ data: clpSmooth, points: clpCurve, color: '#e94560' }], { fill: true, discountPct: clpCurve[1].pct });
+  drawChart('combined', [
+    { data: usdcSmooth, points: usdcCurve, color: '#4ecca3' },
+    { data: wethSmooth, points: wethCurve, color: '#4e9af0' },
+    { data: clpSmooth, points: clpCurve, color: '#e94560' },
+  ], { fill: false });
+  drawArbChart();
+});
+</script>
+
+</body>
+</html>

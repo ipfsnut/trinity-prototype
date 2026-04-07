@@ -2,16 +2,20 @@
 
 import { getDefaultConfig } from "@rainbow-me/rainbowkit";
 import { base } from "wagmi/chains";
-import { http } from "wagmi";
-
-const rpcUrl = process.env.NEXT_PUBLIC_BASE_RPC || "https://mainnet.base.org";
+import { http, fallback } from "wagmi";
 
 export const config = getDefaultConfig({
   appName: "Trinity",
   projectId: "2efb2aeae04a72cb733a24ae9efaaf0e",
   chains: [base],
   transports: {
-    [base.id]: http(rpcUrl, { batch: false }),
+    [base.id]: fallback([
+      http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org", { batch: false }),
+      http("https://mainnet.base.org", { batch: false }),
+      http("https://base.llamarpc.com", { batch: false }),
+      http("https://base.drpc.org", { batch: false }),
+      http("https://base-rpc.publicnode.com", { batch: false }),
+    ]),
   },
   ssr: false,
 });

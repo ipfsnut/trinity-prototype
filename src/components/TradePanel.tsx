@@ -65,11 +65,11 @@ export function TradePanel() {
   const [quoteOut, setQuoteOut] = useState<bigint | null>(null);
 
   const p = POOLS[pool];
-  const spendToken = side === "buy" ? p.quoteAsset : ADDRESSES.tri;
+  const spendToken = side === "buy" ? p.quoteAsset : ADDRESSES.trini;
   const spendDecimals = side === "buy" ? p.quoteDecimals : 18;
-  const spendSymbol = side === "buy" ? p.quoteSymbol : "TRIN";
+  const spendSymbol = side === "buy" ? p.quoteSymbol : "TRINI";
   const outDecimals = side === "buy" ? 18 : p.quoteDecimals;
-  const outSymbol = side === "buy" ? "TRIN" : p.quoteSymbol;
+  const outSymbol = side === "buy" ? "TRINI" : p.quoteSymbol;
 
   const parsedAmount = amount && !isNaN(Number(amount))
     ? parseUnits(amount, spendDecimals) : 0n;
@@ -83,7 +83,7 @@ export function TradePanel() {
   });
 
   const { data: triBalance, refetch: refetchTri } = useReadContract({
-    address: ADDRESSES.tri, abi: trinityTokenAbi, functionName: "balanceOf",
+    address: ADDRESSES.trini, abi: trinityTokenAbi, functionName: "balanceOf",
     args: address ? [address] : undefined, query: { enabled: !!address },
   });
 
@@ -192,11 +192,11 @@ export function TradePanel() {
     try {
       const key = p.poolKey;
       const zeroForOne = side === "buy" ? !triIs0 : triIs0;
-      const tokenIn = side === "buy" ? p.quoteAsset : ADDRESSES.tri;
-      const tokenOut = side === "buy" ? ADDRESSES.tri : p.quoteAsset;
+      const tokenIn = side === "buy" ? p.quoteAsset : ADDRESSES.trini;
+      const tokenOut = side === "buy" ? ADDRESSES.trini : p.quoteAsset;
 
-      // Get fresh quote for slippage
-      let minAmountOut = 1n;
+      // Get fresh quote for slippage — block swap if quote fails
+      let minAmountOut: bigint;
       try {
         const result = await publicClient.simulateContract({
           address: ADDRESSES.quoter, abi: QUOTER_ABI,
@@ -206,7 +206,7 @@ export function TradePanel() {
         const quoted = result.result[0];
         minAmountOut = quoted * BigInt(10000 - slippageBps) / 10000n;
       } catch {
-        console.warn("Quoter failed, using minOut=1");
+        throw new Error("Unable to get price quote. Please try again.");
       }
 
       const isNativeEthBuy = pool === "eth" && side === "buy";
@@ -444,10 +444,10 @@ export function TradePanel() {
         >{loading || `${side === "buy" ? "Buy" : "Sell"} TRIN`}</button>
       )}
 
-      {/* TRIN balance */}
+      {/* TRINI balance */}
       {isConnected && triBalance !== undefined && (
         <div className="text-center text-sm text-[#8892a4]">
-          Your TRIN: <span className="text-white font-mono">{fmt(triBalance, 18, 2)}</span>
+          Your TRINI: <span className="text-white font-mono">{fmt(triBalance, 18, 2)}</span>
         </div>
       )}
     </div>

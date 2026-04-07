@@ -56,7 +56,7 @@ export default function StakePage() {
     args: address ? [address] : undefined, query: { enabled: !!address },
   });
   const { data: triBalance, refetch: refetchTriBal } = useReadContract({
-    address: ADDRESSES.tri, abi: trinityTokenAbi, functionName: "balanceOf",
+    address: ADDRESSES.trini, abi: trinityTokenAbi, functionName: "balanceOf",
     args: address ? [address] : undefined, query: { enabled: !!address },
   });
 
@@ -86,7 +86,7 @@ export default function StakePage() {
         abi: erc20Abi, functionName: "approve",
         args: [ADDRESSES.stakingHub, parsedAmount],
       });
-      await sendAndWait(ADDRESSES.tri, data);
+      await sendAndWait(ADDRESSES.trini, data);
       setStep("approved");
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Approval failed");
@@ -182,9 +182,9 @@ export default function StakePage() {
       <main className="flex-1 flex items-start justify-center pt-12 px-4">
         <div className="w-full max-w-md space-y-6">
           <div>
-            <h1 className="text-2xl font-bold text-white">Stake TRIN</h1>
+            <h1 className="text-2xl font-bold text-white">Stake TRINI</h1>
             <p className="text-sm text-[#8892a4]">
-              Stake TRIN, earn WETH + $CHAOSLP from pool fees (when funded by multisig).
+              Stake TRINI, earn WETH + $CHAOSLP from pool fees (when funded by multisig).
             </p>
           </div>
 
@@ -192,7 +192,7 @@ export default function StakePage() {
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
               <div className="text-[#8892a4] text-xs">Total Staked</div>
-              <div className="text-white font-mono">{fmt(totalStaked, 18, 0)} TRIN</div>
+              <div className="text-white font-mono">{fmt(totalStaked, 18, 0)} TRINI</div>
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
               <div className="text-[#8892a4] text-xs">Rewards</div>
@@ -202,7 +202,7 @@ export default function StakePage() {
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
               <div className="text-[#8892a4] text-xs">Your Stake</div>
-              <div className="text-white font-mono">{fmt(userStaked as bigint | undefined, 18, 2)} TRIN</div>
+              <div className="text-white font-mono">{fmt(userStaked as bigint | undefined, 18, 2)} TRINI</div>
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
               <div className="text-[#8892a4] text-xs">Earned WETH</div>
@@ -251,8 +251,8 @@ export default function StakePage() {
                 <span>{action === "stake" ? "Amount to stake" : "Amount to withdraw"}</span>
                 <span>
                   {action === "stake"
-                    ? `Wallet: ${fmt(triBalance as bigint | undefined, 18, 2)} TRIN`
-                    : `Staked: ${fmt(userStaked as bigint | undefined, 18, 2)} TRIN`}
+                    ? `Wallet: ${fmt(triBalance as bigint | undefined, 18, 2)} TRINI`
+                    : `Staked: ${fmt(userStaked as bigint | undefined, 18, 2)} TRINI`}
                 </span>
               </div>
               <div className="flex gap-2 items-center">
@@ -265,7 +265,7 @@ export default function StakePage() {
                   disabled={step !== "input"}
                   className="flex-1 bg-transparent text-white text-2xl font-mono outline-none disabled:opacity-50"
                 />
-                <span className="text-[#8892a4] font-medium">TRIN</span>
+                <span className="text-[#8892a4] font-medium">TRINI</span>
               </div>
             </div>
 
@@ -283,7 +283,7 @@ export default function StakePage() {
                 disabled={loading !== null || parsedAmount === 0n}
                 className="w-full py-3 rounded-lg bg-[#f0c040] text-black font-medium disabled:opacity-50"
               >
-                {loading === "approve" ? "Approving..." : `Approve ${amount || "0"} TRIN`}
+                {loading === "approve" ? "Approving..." : `Approve ${amount || "0"} TRINI`}
               </button>
             ) : action === "stake" && step === "approved" ? (
               <button
@@ -291,7 +291,7 @@ export default function StakePage() {
                 disabled={loading !== null}
                 className="w-full py-3 rounded-lg bg-[#4ecca3] text-black font-medium disabled:opacity-50"
               >
-                {loading === "stake" ? "Staking..." : `Stake ${amount} TRIN`}
+                {loading === "stake" ? "Staking..." : `Stake ${amount} TRINI`}
               </button>
             ) : action === "withdraw" ? (
               <button
@@ -299,7 +299,7 @@ export default function StakePage() {
                 disabled={loading !== null || parsedAmount === 0n}
                 className="w-full py-3 rounded-lg bg-[#e94560] text-white font-medium disabled:opacity-50"
               >
-                {loading === "withdraw" ? "Withdrawing..." : "Withdraw TRIN"}
+                {loading === "withdraw" ? "Withdrawing..." : "Withdraw TRINI"}
               </button>
             ) : null}
 

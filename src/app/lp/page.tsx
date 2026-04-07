@@ -56,13 +56,13 @@ export default function LPPage() {
       const { currency0, currency1 } = p.poolKey;
 
       // Approve both tokens to PositionManager
-      setLoading("Approving " + (currency0.toLowerCase() === ADDRESSES.tri.toLowerCase() ? "TRIN" : p.quoteSymbol) + "...");
+      setLoading("Approving " + (currency0.toLowerCase() === ADDRESSES.trini.toLowerCase() ? "TRINI" : p.quoteSymbol) + "...");
       await sendAndWait(currency0, encodeFunctionData({
         abi: erc20Abi, functionName: "approve",
         args: [POSITION_MANAGER, SEED_RAW],
       }));
 
-      setLoading("Approving " + (currency1.toLowerCase() === ADDRESSES.tri.toLowerCase() ? "TRIN" : p.quoteSymbol) + "...");
+      setLoading("Approving " + (currency1.toLowerCase() === ADDRESSES.trini.toLowerCase() ? "TRINI" : p.quoteSymbol) + "...");
       await sendAndWait(currency1, encodeFunctionData({
         abi: erc20Abi, functionName: "approve",
         args: [POSITION_MANAGER, SEED_RAW],
@@ -140,10 +140,10 @@ export default function LPPage() {
     }
   }
 
-  const triIsC0 = p.poolKey.currency0.toLowerCase() === ADDRESSES.tri.toLowerCase();
+  const triIsC0 = p.poolKey.currency0.toLowerCase() === ADDRESSES.trini.toLowerCase();
   const quoteLabel = p.quoteSymbol;
-  const token0Label = triIsC0 ? "TRIN" : quoteLabel;
-  const token1Label = triIsC0 ? quoteLabel : "TRIN";
+  const token0Label = triIsC0 ? "TRINI" : quoteLabel;
+  const token1Label = triIsC0 ? quoteLabel : "TRINI";
   const token0Decimals = triIsC0 ? 18 : p.quoteDecimals;
   const token1Decimals = triIsC0 ? p.quoteDecimals : 18;
   const amount0Display = Number(SEED_RAW) / 10 ** token0Decimals;

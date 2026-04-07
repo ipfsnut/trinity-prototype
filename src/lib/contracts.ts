@@ -1,11 +1,11 @@
 import { parseAbi } from "viem";
 
-// ── V5 Deployed addresses (Base mainnet) ────────────────────────────
+// ── V6 Deployed addresses (Base mainnet) ────────────────────────────
 export const ADDRESSES = {
-  tri: "0x1313b1B3387Ee849d549d9c9280148B237a375ae" as `0x${string}`,
-  hook: "0x1427050C1b5886471CA7ce656aB6ec22E86e40c8" as `0x${string}`,
-  stakingHub: "0x61219b5F2a59A6F331Ce5362b30c8277Cb748cf8" as `0x${string}`,
-  wethGauge: "0xe16e16CD6bc461ce5f0844ddD324f7b06AA3A2E2" as `0x${string}`,
+  trini: "0x17790eFD4896A981Db1d9607A301BC4F7407F3dF" as `0x${string}`,
+  hook: "0xe89a658e4bec91caea242aD032280a5D3015C8c8" as `0x${string}`,
+  stakingHub: "0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6" as `0x${string}`,
+  wethGauge: "0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2" as `0x${string}`,
   // V4 infrastructure on Base
   universalRouter: "0x6ff5693b99212da76ad316178a184ab56d299b43" as `0x${string}`,
   permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3" as `0x${string}`,
@@ -74,12 +74,12 @@ export const rewardGaugeAbi = parseAbi([
 // ── V4 Pool Keys (tickSpacing=200, fee=0, with hook) ────────────────
 
 export function makePoolKey(quoteAsset: `0x${string}`) {
-  const tri = ADDRESSES.tri.toLowerCase();
+  const tri = ADDRESSES.trini.toLowerCase();
   const quote = quoteAsset.toLowerCase();
   const [c0, c1] =
     tri < quote
-      ? [ADDRESSES.tri, quoteAsset]
-      : [quoteAsset, ADDRESSES.tri];
+      ? [ADDRESSES.trini, quoteAsset]
+      : [quoteAsset, ADDRESSES.trini];
   return {
     currency0: c0,
     currency1: c1,
@@ -105,7 +105,7 @@ export const POOLS: Record<
   }
 > = {
   usdc: {
-    label: "TRIN / USDC",
+    label: "TRINI / USDC",
     quoteSymbol: "USDC",
     quoteAsset: ADDRESSES.usdc,
     poolKey: makePoolKey(ADDRESSES.usdc),
@@ -114,7 +114,7 @@ export const POOLS: Record<
     geckoUrl: "https://www.geckoterminal.com/base/pools/0xd35b828aa74cd7832be68003ce44de7767987a27b8ef654ca6c595e7584a156e",
   },
   eth: {
-    label: "TRIN / ETH",
+    label: "TRINI / ETH",
     quoteSymbol: "ETH",
     quoteAsset: ADDRESSES.weth,
     poolKey: makePoolKey(ADDRESSES.weth),
@@ -123,7 +123,7 @@ export const POOLS: Record<
     geckoUrl: "https://www.geckoterminal.com/base/pools/0x00275064520d3ef7a2f653ef850f1589bcbdb3b346cd1e6bc96f888d204ff149",
   },
   chaoslp: {
-    label: "TRIN / $CHAOSLP",
+    label: "TRINI / $CHAOSLP",
     quoteSymbol: "$CHAOSLP",
     quoteAsset: ADDRESSES.chaoslp,
     poolKey: makePoolKey(ADDRESSES.chaoslp),
@@ -140,5 +140,5 @@ export const POOLS: Record<
 export const V4_SWAP_COMMAND = "0x10" as `0x${string}`;
 
 export function isTriCurrency0(quoteAsset: `0x${string}`): boolean {
-  return ADDRESSES.tri.toLowerCase() < quoteAsset.toLowerCase();
+  return ADDRESSES.trini.toLowerCase() < quoteAsset.toLowerCase();
 }

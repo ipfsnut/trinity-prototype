@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>$TRIN Logo Concepts</title>
+<style>
+  body {
+    background: #0a0a1a;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 200px;
+    padding: 100px 0;
+    font-family: -apple-system, sans-serif;
+    color: #8892a4;
+  }
+
+  h2 {
+    text-align: center;
+    font-size: 14px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 40px;
+  }
+
+  /* ══════════════════════════════════════════════════════════ */
+  /* CONCEPT 2: OVERLAPPING RINGS                              */
+  /* ══════════════════════════════════════════════════════════ */
+
+  .rings-wrap {
+    position: relative;
+    width: 400px;
+    height: 400px;
+  }
+
+  .ring {
+    position: absolute;
+    width: 220px;
+    height: 220px;
+    border-radius: 50%;
+    mix-blend-mode: screen;
+    opacity: 0.85;
+  }
+
+  .ring-green {
+    background: radial-gradient(circle at 60% 60%, #4ecca3 0%, #2a7a5e 60%, transparent 100%);
+    top: 30px;
+    left: 90px;
+  }
+
+  .ring-blue {
+    background: radial-gradient(circle at 35% 65%, #4e9af0 0%, #2a5a9e 60%, transparent 100%);
+    top: 160px;
+    left: 10px;
+  }
+
+  .ring-red {
+    background: radial-gradient(circle at 40% 35%, #e94560 0%, #8a2535 60%, transparent 100%);
+    top: 160px;
+    left: 170px;
+  }
+
+  /* Center glow where all three overlap */
+  .rings-center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #fff 0%, #f0c040 30%, rgba(240, 192, 64, 0) 70%);
+    filter: blur(2px);
+    z-index: 10;
+  }
+
+  /* Outer glow */
+  .rings-glow {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 160px;
+    height: 160px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, transparent 70%);
+    z-index: 5;
+  }
+
+  /* ══════════════════════════════════════════════════════════ */
+  /* CONCEPT 3: TRIANGULAR PRISM                               */
+  /* ══════════════════════════════════════════════════════════ */
+
+  .prism-wrap {
+    position: relative;
+    width: 400px;
+    height: 400px;
+  }
+
+  .prism-svg {
+    width: 100%;
+    height: 100%;
+  }
+
+  /* Core glow */
+  .prism-core {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -52%);
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    background: radial-gradient(circle,
+      rgba(255,255,255,0.9) 0%,
+      rgba(240,192,64,0.6) 25%,
+      rgba(78,154,240,0.2) 50%,
+      transparent 70%
+    );
+    filter: blur(6px);
+  }
+
+  .prism-core-sharp {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -52%);
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background: #fff;
+    box-shadow: 0 0 20px 8px rgba(240,192,64,0.5), 0 0 60px 20px rgba(255,255,255,0.15);
+  }
+</style>
+</head>
+<body>
+
+<!-- ════════════ CONCEPT 2: OVERLAPPING RINGS ════════════ -->
+<div>
+  <h2>Concept 2 &mdash; Overlapping Rings</h2>
+  <div class="rings-wrap">
+    <div class="ring ring-green"></div>
+    <div class="ring ring-blue"></div>
+    <div class="ring ring-red"></div>
+    <div class="rings-glow"></div>
+    <div class="rings-center"></div>
+  </div>
+</div>
+
+<!-- ════════════ CONCEPT 3: TRIANGULAR PRISM ════════════ -->
+<div>
+  <h2>Concept 3 &mdash; Triangular Prism</h2>
+  <div class="prism-wrap">
+    <svg class="prism-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="edge-green" x1="0%" y1="0%" x2="100%" y2="0%">
+          <stop offset="0%" stop-color="#4ecca3"/>
+          <stop offset="100%" stop-color="#4e9af0"/>
+        </linearGradient>
+        <linearGradient id="edge-blue" x1="0%" y1="0%" x2="50%" y2="100%">
+          <stop offset="0%" stop-color="#4e9af0"/>
+          <stop offset="100%" stop-color="#e94560"/>
+        </linearGradient>
+        <linearGradient id="edge-red" x1="100%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stop-color="#e94560"/>
+          <stop offset="100%" stop-color="#4ecca3"/>
+        </linearGradient>
+        <filter id="glow">
+          <feGaussianBlur stdDeviation="3" result="blur"/>
+          <feMerge>
+            <feMergeNode in="blur"/>
+            <feMergeNode in="SourceGraphic"/>
+          </feMerge>
+        </filter>
+        <!-- Vertex glows -->
+        <radialGradient id="glow-green" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#4ecca3" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#4ecca3" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glow-blue" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#4e9af0" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#4e9af0" stop-opacity="0"/>
+        </radialGradient>
+        <radialGradient id="glow-red" cx="50%" cy="50%" r="50%">
+          <stop offset="0%" stop-color="#e94560" stop-opacity="0.8"/>
+          <stop offset="100%" stop-color="#e94560" stop-opacity="0"/>
+        </radialGradient>
+      </defs>
+
+      <!-- Triangle edges -->
+      <!-- Top vertex: 200,60  Bottom-left: 60,330  Bottom-right: 340,330 -->
+      <line x1="200" y1="60" x2="60" y2="330" stroke="url(#edge-red)" stroke-width="3" filter="url(#glow)"/>
+      <line x1="60" y1="330" x2="340" y2="330" stroke="url(#edge-blue)" stroke-width="3" filter="url(#glow)"/>
+      <line x1="340" y1="330" x2="200" y2="60" stroke="url(#edge-green)" stroke-width="3" filter="url(#glow)"/>
+
+      <!-- Vertex dots -->
+      <circle cx="200" cy="60" r="20" fill="url(#glow-green)" opacity="0.6"/>
+      <circle cx="60" cy="330" r="20" fill="url(#glow-red)" opacity="0.6"/>
+      <circle cx="340" cy="330" r="20" fill="url(#glow-blue)" opacity="0.6"/>
+      <circle cx="200" cy="60" r="4" fill="#4ecca3"/>
+      <circle cx="60" cy="330" r="4" fill="#e94560"/>
+      <circle cx="340" cy="330" r="4" fill="#4e9af0"/>
+
+      <!-- Inner lines to center (convergence) -->
+      <line x1="200" y1="60" x2="200" y2="240" stroke="#4ecca3" stroke-width="1" opacity="0.25"/>
+      <line x1="60" y1="330" x2="200" y2="240" stroke="#e94560" stroke-width="1" opacity="0.25"/>
+      <line x1="340" y1="330" x2="200" y2="240" stroke="#4e9af0" stroke-width="1" opacity="0.25"/>
+    </svg>
+    <div class="prism-core"></div>
+    <div class="prism-core-sharp"></div>
+  </div>
+</div>
+
+</body>
+</html>
