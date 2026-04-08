@@ -1,12 +1,34 @@
 "use client";
 
-import { getDefaultConfig } from "@rainbow-me/rainbowkit";
+import { connectorsForWallets } from "@rainbow-me/rainbowkit";
+import {
+  injectedWallet,
+  rainbowWallet,
+  metaMaskWallet,
+  walletConnectWallet,
+  coinbaseWallet,
+} from "@rainbow-me/rainbowkit/wallets";
 import { base } from "wagmi/chains";
-import { http, fallback } from "wagmi";
+import { http, fallback, createConfig } from "wagmi";
 
-export const config = getDefaultConfig({
-  appName: "Trinity",
-  projectId: "2efb2aeae04a72cb733a24ae9efaaf0e",
+const PROJECT_ID = "2efb2aeae04a72cb733a24ae9efaaf0e";
+
+const connectors = connectorsForWallets(
+  [
+    {
+      groupName: "Recommended",
+      wallets: [injectedWallet, coinbaseWallet, metaMaskWallet],
+    },
+    {
+      groupName: "More",
+      wallets: [rainbowWallet, walletConnectWallet],
+    },
+  ],
+  { appName: "Trinity", projectId: PROJECT_ID }
+);
+
+export const config = createConfig({
+  connectors,
   chains: [base],
   transports: {
     [base.id]: fallback([
