@@ -1,36 +1,12 @@
 "use client";
 
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import { TradePanel } from "@/components/TradePanel";
-import Link from "next/link";
+import { Nav } from "@/components/Nav";
 
 export default function Home() {
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Nav */}
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-[#0f3460]">
-        <div className="flex items-center gap-6">
-          <span className="text-xl font-bold text-white">Trinity</span>
-          <div className="flex gap-4 text-sm">
-            <Link href="/" className="text-[#e94560] font-medium">
-              Trade
-            </Link>
-            <Link
-              href="/stake"
-              className="text-[#8892a4] hover:text-white transition-colors"
-            >
-              Stake
-            </Link>
-            <Link
-              href="/docs"
-              className="text-[#8892a4] hover:text-white transition-colors"
-            >
-              Docs
-            </Link>
-          </div>
-        </div>
-        <ConnectButton />
-      </nav>
+      <Nav active="trade" />
 
       {/* Main */}
       <main className="flex-1 flex items-start justify-center pt-12 px-4">

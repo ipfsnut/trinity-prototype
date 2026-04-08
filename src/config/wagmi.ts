@@ -2,11 +2,10 @@
 
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import {
-  injectedWallet,
-  rainbowWallet,
-  metaMaskWallet,
   walletConnectWallet,
   coinbaseWallet,
+  metaMaskWallet,
+  rainbowWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { base } from "wagmi/chains";
 import { http, fallback, createConfig } from "wagmi";
@@ -16,12 +15,8 @@ const PROJECT_ID = "2efb2aeae04a72cb733a24ae9efaaf0e";
 const connectors = connectorsForWallets(
   [
     {
-      groupName: "Recommended",
-      wallets: [injectedWallet, coinbaseWallet, metaMaskWallet],
-    },
-    {
-      groupName: "More",
-      wallets: [rainbowWallet, walletConnectWallet],
+      groupName: "Connect",
+      wallets: [walletConnectWallet, coinbaseWallet, metaMaskWallet, rainbowWallet],
     },
   ],
   { appName: "Trinity", projectId: PROJECT_ID }

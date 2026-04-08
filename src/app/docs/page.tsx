@@ -1,4 +1,6 @@
-import Link from "next/link";
+"use client";
+
+import { Nav } from "@/components/Nav";
 
 export default function DocsPage() {
   const docs = [
@@ -25,12 +27,17 @@ export default function DocsPage() {
     {
       title: "Staking Hub",
       href: "https://basescan.org/address/0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6",
-      description: "Stake TRINI, earn TRINI + WETH rewards. ChaosLPHub pattern. Verified on Basescan.",
+      description: "Stake TRINI, earn $CHAOSLP + WETH rewards. ChaosLPHub pattern. Verified on Basescan.",
     },
     {
       title: "WETH Reward Gauge",
       href: "https://basescan.org/address/0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2",
       description: "Distributes WETH rewards to stakers. Verified on Basescan.",
+    },
+    {
+      title: "$CHAOSLP Reward Gauge",
+      href: "https://basescan.org/address/0xa142dcE717820F0f92E5f89d9aFA7B61A4FA1904",
+      description: "Distributes $CHAOSLP rewards to stakers. 180-day stream. Verified on Basescan.",
     },
     {
       title: "epicdylan.com",
@@ -41,16 +48,7 @@ export default function DocsPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-[#0f3460]">
-        <div className="flex items-center gap-6">
-          <span className="text-xl font-bold text-white">Trinity</span>
-          <div className="flex gap-4 text-sm">
-            <Link href="/" className="text-[#8892a4] hover:text-white transition-colors">Trade</Link>
-            <Link href="/stake" className="text-[#8892a4] hover:text-white transition-colors">Stake</Link>
-            <Link href="/docs" className="text-[#f0c040] font-medium">Docs</Link>
-          </div>
-        </div>
-      </nav>
+      <Nav active="docs" />
 
       <main className="flex-1 flex items-start justify-center pt-12 px-4">
         <div className="w-full max-w-lg space-y-4">

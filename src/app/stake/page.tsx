@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ConnectButton } from "@rainbow-me/rainbowkit";
 import {
   useAccount,
   useReadContract,
@@ -10,8 +9,8 @@ import {
   useWalletClient,
 } from "wagmi";
 import { formatUnits, parseUnits, encodeFunctionData } from "viem";
-import Link from "next/link";
 import { ADDRESSES, stakingHubAbi, rewardGaugeAbi, trinityTokenAbi, erc20Abi } from "@/lib/contracts";
+import { Nav } from "@/components/Nav";
 import { usePrices } from "@/lib/usePrices";
 import { AdminPanel } from "@/components/AdminPanel";
 
@@ -203,17 +202,7 @@ export default function StakePage() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      <nav className="flex items-center justify-between px-6 py-4 border-b border-[#0f3460]">
-        <div className="flex items-center gap-6">
-          <span className="text-xl font-bold text-white">Trinity</span>
-          <div className="flex gap-4 text-sm">
-            <Link href="/" className="text-[#8892a4] hover:text-white transition-colors">Trade</Link>
-            <Link href="/stake" className="text-[#4ecca3] font-medium">Stake</Link>
-            <Link href="/docs" className="text-[#8892a4] hover:text-white transition-colors">Docs</Link>
-          </div>
-        </div>
-        <ConnectButton />
-      </nav>
+      <Nav active="stake" />
 
       <main className="flex-1 flex items-start justify-center pt-12 px-4">
         <div className="w-full max-w-md space-y-6">
