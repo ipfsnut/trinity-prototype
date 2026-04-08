@@ -12,6 +12,8 @@ import {
 import { formatUnits, parseUnits, encodeFunctionData } from "viem";
 import Link from "next/link";
 import { ADDRESSES, stakingHubAbi, rewardGaugeAbi, trinityTokenAbi, erc20Abi } from "@/lib/contracts";
+import { usePrices } from "@/lib/usePrices";
+import { AdminPanel } from "@/components/AdminPanel";
 
 type Step = "input" | "approved";
 
@@ -55,6 +57,41 @@ export default function StakePage() {
     address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "earned",
     args: address ? [address] : undefined, query: { enabled: !!address },
   });
+  const { data: earnedChaoslp, refetch: refetchEarnedChaoslp } = useReadContract({
+    address: ADDRESSES.chaoslpGauge, abi: rewardGaugeAbi, functionName: "earned",
+    args: address ? [address] : undefined, query: { enabled: !!address },
+  });
+  const { data: gaugeRates } = useReadContracts({
+    contracts: [
+      { address: ADDRESSES.chaoslpGauge, abi: rewardGaugeAbi, functionName: "rewardRate" },
+      { address: ADDRESSES.chaoslpGauge, abi: rewardGaugeAbi, functionName: "periodFinish" },
+      { address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "rewardRate" },
+      { address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "periodFinish" },
+    ],
+  });
+  const chaoslpRewardRate = gaugeRates?.[0]?.result as bigint | undefined;
+  const chaoslpPeriodFinish = gaugeRates?.[1]?.result as bigint | undefined;
+  const wethRewardRate = gaugeRates?.[2]?.result as bigint | undefined;
+  const wethPeriodFinish2 = gaugeRates?.[3]?.result as bigint | undefined;
+  const isChaoslpActive = chaoslpPeriodFinish !== undefined && Number(chaoslpPeriodFinish) > Date.now() / 1000;
+  const isWethGaugeActive = wethPeriodFinish2 !== undefined && Number(wethPeriodFinish2) > Date.now() / 1000;
+
+  // USD-denominated APR using live prices
+  const prices = usePrices();
+  const YEAR_SECS = 365 * 86400;
+
+  function computeApr(rewardRate: bigint | undefined, rewardPriceUsd: number | null): number | null {
+    if (!rewardRate || rewardRate === 0n || !totalStaked || totalStaked === 0n) return null;
+    if (!prices.triniUsd || !rewardPriceUsd) return null;
+    const annualRewardTokens = Number(formatUnits(rewardRate, 18)) * YEAR_SECS;
+    const annualRewardUsd = annualRewardTokens * rewardPriceUsd;
+    const stakedUsd = Number(formatUnits(totalStaked, 18)) * prices.triniUsd;
+    if (stakedUsd === 0) return null;
+    return (annualRewardUsd / stakedUsd) * 100;
+  }
+
+  const chaoslpApr = computeApr(chaoslpRewardRate, prices.chaoslpUsd);
+  const wethApr = computeApr(wethRewardRate, prices.wethUsd);
   const { data: triBalance, refetch: refetchTriBal } = useReadContract({
     address: ADDRESSES.trini, abi: trinityTokenAbi, functionName: "balanceOf",
     args: address ? [address] : undefined, query: { enabled: !!address },
@@ -65,8 +102,9 @@ export default function StakePage() {
     refetchUserStaked();
     refetchEarnedHub();
     refetchEarnedWeth();
+    refetchEarnedChaoslp();
     refetchTriBal();
-  }, [refetchGlobal, refetchUserStaked, refetchEarnedHub, refetchEarnedWeth, refetchTriBal]);
+  }, [refetchGlobal, refetchUserStaked, refetchEarnedHub, refetchEarnedWeth, refetchEarnedChaoslp, refetchTriBal]);
 
   // ── Send + wait helper ────────────────────────────────────────
   async function sendAndWait(to: `0x${string}`, data: `0x${string}`) {
@@ -158,12 +196,10 @@ export default function StakePage() {
   const fmt = (val: bigint | undefined, dec: number, dp = 4) =>
     val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "—";
 
-  const isActive =
-    periodFinish !== undefined && Number(periodFinish) > Date.now() / 1000;
-
   const hasEarnings =
     (earnedHub !== undefined && (earnedHub as bigint) > 0n) ||
-    (earnedWeth !== undefined && (earnedWeth as bigint) > 0n);
+    (earnedWeth !== undefined && (earnedWeth as bigint) > 0n) ||
+    (earnedChaoslp !== undefined && (earnedChaoslp as bigint) > 0n);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -196,8 +232,8 @@ export default function StakePage() {
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
               <div className="text-[#8892a4] text-xs">Rewards</div>
-              <div className={`font-mono ${isActive ? "text-[#4ecca3]" : "text-[#8892a4]"}`}>
-                {isActive ? "Active" : "Not yet funded"}
+              <div className={`font-mono ${(isChaoslpActive || isWethGaugeActive) ? "text-[#4ecca3]" : "text-[#8892a4]"}`}>
+                {isChaoslpActive || isWethGaugeActive ? "Active" : "Not yet funded"}
               </div>
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
@@ -208,20 +244,33 @@ export default function StakePage() {
               <div className="text-[#8892a4] text-xs">Earned WETH</div>
               <div className="text-[#4e9af0] font-mono">{fmt(earnedWeth as bigint | undefined, 18, 6)}</div>
             </div>
+            <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460] col-span-2">
+              <div className="text-[#8892a4] text-xs">Earned $CHAOSLP</div>
+              <div className="text-[#e94560] font-mono">{fmt(earnedChaoslp as bigint | undefined, 18, 2)}</div>
+            </div>
           </div>
 
           {/* Reward streams */}
           <div className="bg-[#0d1117] rounded-lg p-4 border border-[#0f3460] space-y-2">
-            <div className="text-[#8892a4] text-xs font-medium">Reward Streams</div>
+            <div className="flex justify-between text-[#8892a4] text-xs font-medium">
+              <span>Rewards</span>
+              <span>APR</span>
+            </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#4e9af0]">WETH</span>
-              <span className="text-sm text-[#8892a4] font-mono">
-                {isActive ? "Streaming" : "Gauge deployed, awaiting funding"}
+              <span className="text-sm font-mono">
+                {isWethGaugeActive && wethApr !== null
+                  ? <span className="text-[#4ecca3]">{wethApr.toFixed(1)}%</span>
+                  : <span className="text-[#8892a4]">Awaiting funding</span>}
               </span>
             </div>
             <div className="flex justify-between items-center">
               <span className="text-sm text-[#e94560]">$CHAOSLP</span>
-              <span className="text-sm text-[#8892a4] font-mono">Gauge pending deployment</span>
+              <span className="text-sm font-mono">
+                {isChaoslpActive && chaoslpApr !== null
+                  ? <span className="text-[#4ecca3]">{chaoslpApr.toFixed(1)}%</span>
+                  : <span className="text-[#8892a4]">Awaiting funding</span>}
+              </span>
             </div>
           </div>
 
@@ -267,6 +316,23 @@ export default function StakePage() {
                 />
                 <span className="text-[#8892a4] font-medium">TRINI</span>
               </div>
+              <div className="flex gap-1 mt-2">
+                {[25, 50, 75, 100].map((pct) => {
+                  const bal = action === "stake"
+                    ? (triBalance as bigint | undefined)
+                    : (userStaked as bigint | undefined);
+                  return (
+                    <button key={pct} disabled={!bal || step !== "input"}
+                      onClick={() => {
+                        if (!bal) return;
+                        const val = pct === 100 ? bal : bal * BigInt(pct) / 100n;
+                        setAmount(formatUnits(val, 18));
+                      }}
+                      className="flex-1 py-1 text-xs rounded bg-[#16213e] text-[#8892a4] hover:text-white disabled:opacity-30 transition-colors"
+                    >{pct}%</button>
+                  );
+                })}
+              </div>
             </div>
 
             {error && (
@@ -303,12 +369,12 @@ export default function StakePage() {
               </button>
             ) : null}
 
-            {/* Claim / Exit */}
-            {isConnected && hasEarnings && (
+            {/* Claim / Exit — always show when user has a stake */}
+            {isConnected && userStaked !== undefined && (userStaked as bigint) > 0n && (
               <div className="flex gap-2">
                 <button
                   onClick={handleClaim}
-                  disabled={loading !== null}
+                  disabled={loading !== null || !hasEarnings}
                   className="flex-1 py-2 rounded-lg bg-[#4e9af0] text-white font-medium text-sm disabled:opacity-50"
                 >
                   {loading === "claim" ? "Claiming..." : "Claim Rewards"}
@@ -323,6 +389,8 @@ export default function StakePage() {
               </div>
             )}
           </div>
+
+          <AdminPanel />
         </div>
       </main>
     </div>

@@ -10,11 +10,11 @@ export const config = getDefaultConfig({
   chains: [base],
   transports: {
     [base.id]: fallback([
-      http(process.env.NEXT_PUBLIC_BASE_RPC_URL || "https://mainnet.base.org", { batch: false }),
       http("https://mainnet.base.org", { batch: false }),
       http("https://base.llamarpc.com", { batch: false }),
       http("https://base.drpc.org", { batch: false }),
       http("https://base-rpc.publicnode.com", { batch: false }),
+      http("https://1rpc.io/base", { batch: false }),
     ]),
   },
   ssr: false,

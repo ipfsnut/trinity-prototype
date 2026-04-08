@@ -6,6 +6,7 @@ export const ADDRESSES = {
   hook: "0xe89a658e4bec91caea242aD032280a5D3015C8c8" as `0x${string}`,
   stakingHub: "0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6" as `0x${string}`,
   wethGauge: "0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2" as `0x${string}`,
+  chaoslpGauge: "0xa142dcE717820F0f92E5f89d9aFA7B61A4FA1904" as `0x${string}`,
   // V4 infrastructure on Base
   universalRouter: "0x6ff5693b99212da76ad316178a184ab56d299b43" as `0x${string}`,
   permit2: "0x000000000022D473030F116dDEE9F6B43aC78BA3" as `0x${string}`,
@@ -69,7 +70,30 @@ export const rewardGaugeAbi = parseAbi([
   "function rewardRate() view returns (uint256)",
   "function periodFinish() view returns (uint256)",
   "function getRewardForDuration() view returns (uint256)",
+  "function notifyRewardAmount(uint256 reward)",
 ]);
+
+// ── Admin ABIs (multisig only) ─────────────────────────────────────
+
+export const stakingHubAdminAbi = parseAbi([
+  "function notifyRewardAmount(uint256 reward)",
+  "function addExtraReward(address gauge)",
+  "function removeExtraReward(address gauge)",
+  "function owner() view returns (address)",
+  "function rewardsDuration() view returns (uint256)",
+]);
+
+export const QUOTER_ABI = [{
+  name: "quoteExactInputSingle", type: "function", stateMutability: "nonpayable",
+  inputs: [{ type: "tuple", name: "params", components: [
+    { name: "poolKey", type: "tuple", components: [
+      { name: "currency0", type: "address" }, { name: "currency1", type: "address" },
+      { name: "fee", type: "uint24" }, { name: "tickSpacing", type: "int24" }, { name: "hooks", type: "address" },
+    ]},
+    { name: "zeroForOne", type: "bool" }, { name: "exactAmount", type: "uint128" }, { name: "hookData", type: "bytes" },
+  ]}],
+  outputs: [{ name: "amountOut", type: "uint256" }, { name: "gasEstimate", type: "uint256" }],
+}] as const;
 
 // ── V4 Pool Keys (tickSpacing=200, fee=0, with hook) ────────────────
 

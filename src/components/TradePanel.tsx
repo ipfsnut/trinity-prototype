@@ -391,6 +391,21 @@ export function TradePanel() {
           />
           <span className="text-[#8892a4] font-medium">{spendSymbol}</span>
         </div>
+        <div className="flex gap-1 mt-2">
+          {[25, 50, 75, 100].map((pct) => {
+            const bal = isEthPool && side === "buy" ? ethData?.value : spendBalance as bigint | undefined;
+            return (
+              <button key={pct} disabled={!bal || step !== "input"}
+                onClick={() => {
+                  if (!bal) return;
+                  const val = pct === 100 ? bal : bal * BigInt(pct) / 100n;
+                  setAmount(formatUnits(val, spendDecimals));
+                }}
+                className="flex-1 py-1 text-xs rounded bg-[#16213e] text-[#8892a4] hover:text-white disabled:opacity-30 transition-colors"
+              >{pct}%</button>
+            );
+          })}
+        </div>
       </div>
 
       {/* Preview + fee + slippage */}
