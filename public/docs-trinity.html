@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trinity V5: Uniswap V4 Hook Bonding Curve Protocol</title>
+<title>Trinity V6: Uniswap V4 Hook Bonding Curve Protocol</title>
 <style>
   :root {
     --bg: #1a1a2e;
@@ -112,6 +112,15 @@
   }
   tr:hover td { background: rgba(22, 33, 62, 0.5); }
   .list-item { padding: 3px 0 3px 8px; color: var(--text); }
+  .warning {
+    background: #1a0a0a;
+    border: 1px solid rgba(233, 69, 96, 0.3);
+    border-radius: 8px;
+    padding: 16px 20px;
+    margin: 16px 0;
+    color: rgba(233, 69, 96, 0.8);
+  }
+  .warning strong { color: var(--accent); }
   br { display: block; content: ""; margin: 4px 0; }
   @media (max-width: 600px) {
     .container { padding: 24px 16px; }
@@ -123,24 +132,32 @@
 </head>
 <body>
 <div class="container">
-<h1>Trinity V5: Uniswap V4 Hook Bonding Curve Protocol</h1>
+<h1>Trinity V6: Uniswap V4 Hook Bonding Curve Protocol</h1>
+<br>
+
+<div class="warning">
+<strong>Trade at your own risk.</strong> This is experimental DeFi. The contracts have not been independently audited &mdash; only reviewed by the creator and his computer, and he&rsquo;s hardly impartial. Don&rsquo;t put in more than you&rsquo;re comfortable losing entirely.
+</div>
+
 <br>
 <h2>Overview</h2>
 <br>
-<p>Trinity is a bonding curve protocol implemented as a <strong>Uniswap V4 hook</strong>. A single hook contract serves three independent liquidity pools, each denominated in a different quote asset. The hook fully replaces the V4 AMM &mdash; it IS the liquidity source, using linear bonding curve pricing inside <code class="inline">beforeSwap</code>.</p>
+<p>Trinity is a bonding curve protocol implemented as a <strong>Uniswap V4 hook</strong>. A single hook contract serves three independent liquidity pools (USDC, WETH, $CHAOSLP), each with its own curve shape. The hook manages concentrated LP positions across price bands that approximate a bonding curve.</p>
 <br>
-<p>Because swaps route through Uniswap V4's PoolManager, Trinity pools are natively visible to the entire ecosystem: aggregators, bots, GeckoTerminal, block explorers. Trading fees are asymmetric: buy-side fees go to the multisig, sell-side fees burn $TRIN.</p>
+<p>Because swaps route through Uniswap V4&rsquo;s PoolManager and Universal Router, Trinity pools are natively visible to the entire ecosystem: aggregators, bots, GeckoTerminal, block explorers. Trading fees are asymmetric: buy-side fees go to the multisig, sell-side fees burn $TRINI.</p>
 <br>
 <hr>
 <br>
 <h2>Architecture</h2>
 <br>
-<h3>Token: $TRIN</h3>
+<h3>Token: $TRINI</h3>
 <br>
 <div class="list-item">&#8226; <strong>Total Supply</strong>: 1,000,000,000 (1B)</div>
 <div class="list-item">&#8226; <strong>Decimals</strong>: 18</div>
 <div class="list-item">&#8226; <strong>Type</strong>: Standard ERC-20 (OpenZeppelin, non-upgradeable)</div>
-<div class="list-item">&#8226; <strong>Address</strong>: <code class="inline">0x1313b1B3387Ee849d549d9c9280148B237a375ae</code></div>
+<div class="list-item">&#8226; <strong>Ticker</strong>: TRINI</div>
+<div class="list-item">&#8226; <strong>Starting price</strong>: $0.000025 / TRINI ($25K FDV)</div>
+<div class="list-item">&#8226; <strong>Chain</strong>: Base (L2 &mdash; gas is ~$0.005 per swap)</div>
 <br>
 <h3>Supply Distribution</h3>
 <br>
@@ -150,15 +167,15 @@
 <th>%</th>
 <th>Purpose</th>
 </tr></thead><tbody>
-<tr><td>TRIN/USDC Pool</td><td>300,000,000</td><td>30%</td><td>Stable anchor</td></tr>
-<tr><td>TRIN/WETH Pool</td><td>300,000,000</td><td>30%</td><td>Blue chip liquidity</td></tr>
-<tr><td>TRIN/$CHAOSLP Pool</td><td>300,000,000</td><td>30%</td><td>Community/speculative</td></tr>
+<tr><td>TRINI/USDC Pool</td><td>450,000,000</td><td>45%</td><td>Deep anchor &mdash; stable pricing</td></tr>
+<tr><td>TRINI/WETH Pool</td><td>297,000,000</td><td>29.7%</td><td>ETH relay &mdash; moderate depth</td></tr>
+<tr><td>TRINI/$CHAOSLP Pool</td><td>153,000,000</td><td>15.3%</td><td>Volatility engine &mdash; thin, steep</td></tr>
 <tr><td>Treasury (Multisig)</td><td>100,000,000</td><td>10%</td><td>Team, partnerships, reserves</td></tr>
 </tbody></table>
 <br>
-<h3>V4 Hook Architecture</h3>
+<h3>V6 Hook Architecture</h3>
 <br>
-<p>One hook contract, three pools. The AMM runs normally &mdash; the hook manages WHERE liquidity sits (concentrated LP bands) and collects fees via <code class="inline">beforeSwap</code>. LP is seeded one-sided (TRIN only, Clanker pattern) and rebalances across bands as price moves.</p>
+<p>One hook contract, three pools. The AMM runs normally &mdash; the hook manages WHERE liquidity sits (concentrated LP bands) and collects fees via <code class="inline">beforeSwap</code>. LP is seeded one-sided (TRINI only, Clanker pattern) and rebalances across bands as price moves.</p>
 <br>
 <pre><code>
                     +-----------------------+
@@ -167,85 +184,77 @@
                     +----------+------------+
                                |
                     +----------v------------+
-                    |    TRINNITY HOOK       |
-                    |  beforeSwap: pricing  |
-                    |  900M TRIN reserves    |
-                    |  Per-pool CurveConfig |
+                    |   TRINITY HOOK V6     |
+                    |  beforeSwap: 1% fee   |
+                    |  afterSwap: rebalance  |
+                    |  LP bands per pool    |
                     +--+--------+--------+--+
                        |        |        |
               +--------v--+ +---v------+ +--v-----------+
-              | TRINN/USDC  | | TRINN/WETH | | TRINN/$CHAOSLP |
-              | 300M TRIN  | | 300M TRIN | | 300M TRIN     |
-              | 1.5x slope| | 1x slope | | 1x slope     |
+              | TRINI/USDC | | TRINI/WETH| | TRINI/$CHAOSLP|
+              | 450M TRINI | | 297M TRINI| | 153M TRINI   |
+              | 16 bands   | | 15 bands  | | 15 bands     |
+              | Deep/flat  | | Moderate  | | Thin/steep   |
               +-----------+ +----------+ +--------------+
                        |        |        |
                        v        v        v
-                  All fees --> Multisig
-                  All sells --> Burn 1% TRIN
+                  Buy fees --> Multisig
+                  Sell fees --> Burn to 0xdead
 </code></pre>
 <br>
-<p>Each pool has its own <code class="inline">CurveConfig</code>: independent <code class="inline">totalSold</code>, independent reserves, independent price curve. The pools share no state &mdash; they just live in the same hook contract.</p>
+<p>Each pool has its own band schedule and curve shape. The pools share TRINI as currency0 but have independent LP positions, active bands, and fee recipients.</p>
 <br>
+
 <h3>Deployed Contracts (Base Mainnet)</h3>
 <br>
 <table><thead><tr>
 <th>Contract</th>
 <th>Address</th>
 </tr></thead><tbody>
-<tr><td>TRIN Token</td><td><code class="inline">0x1313b1B3387Ee849d549d9c9280148B237a375ae</code></td></tr>
-<tr><td>TrinityHook</td><td><code class="inline">0x6EC5c87935E13450f82e24CB4133f9475e574888</code></td></tr>
-<tr><td>TrinityRouter</td><td><code class="inline">0xb2934f0533E6db5Ea9Cf9B811567bE87645D2720</code></td></tr>
-<tr><td>Staking Hub</td><td><code class="inline">0x8C507fc36b3e787F0AcC31a82e9829b0ABA28361</code></td></tr>
-<tr><td>WETH Gauge</td><td><code class="inline">0xF11F22C89Db3fc8E377A7432A28a56C939529f64</code></td></tr>
-<tr><td>Multisig (Owner)</td><td><code class="inline">0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0</code></td></tr>
+<tr><td>TRINI Token</td><td><a href="https://basescan.org/address/0x17790eFD4896A981Db1d9607A301BC4F7407F3dF" style="color:var(--green)"><code class="inline">0x17790eFD4896A981Db1d9607A301BC4F7407F3dF</code></a></td></tr>
+<tr><td>TrinityHookV6</td><td><a href="https://basescan.org/address/0xe89a658e4bec91caea242aD032280a5D3015C8c8" style="color:var(--green)"><code class="inline">0xe89a658e4bec91caea242aD032280a5D3015C8c8</code></a></td></tr>
+<tr><td>Staking Hub</td><td><a href="https://basescan.org/address/0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6" style="color:var(--green)"><code class="inline">0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6</code></a></td></tr>
+<tr><td>WETH Gauge</td><td><a href="https://basescan.org/address/0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2" style="color:var(--green)"><code class="inline">0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2</code></a></td></tr>
+<tr><td>Multisig (Owner)</td><td><a href="https://basescan.org/address/0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0" style="color:var(--green)"><code class="inline">0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0</code></a></td></tr>
 </tbody></table>
 <br>
-<p>The hook address ends in <code class="inline">...4888</code> &mdash; the lower bits encode V4 permissions: <code class="inline">BEFORE_ADD_LIQUIDITY</code>, <code class="inline">BEFORE_SWAP</code>, <code class="inline">BEFORE_SWAP_RETURNS_DELTA</code>. Deployed via CREATE2 address mining.</p>
+<p>All contracts verified on Basescan. Source: <a href="https://github.com/ipfsnut/trinity-prototype" style="color:var(--green)">github.com/ipfsnut/trinity-prototype</a></p>
+<br>
+<p>The hook address encodes V4 permissions in its lower bits: <code class="inline">BEFORE_ADD_LIQUIDITY</code>, <code class="inline">BEFORE_SWAP</code>, <code class="inline">BEFORE_SWAP_RETURNS_DELTA</code>, <code class="inline">AFTER_SWAP</code>. Deployed via CREATE2 address mining.</p>
 <br>
 <hr>
 <br>
-<h2>Bonding Curve Mechanics</h2>
+<h2>LP Band Mechanics</h2>
 <br>
-<h3>Curve Formula</h3>
+<h3>How It Works</h3>
 <br>
-<p>Linear bonding curve:</p>
+<p>Instead of a formula-based bonding curve, V6 uses <strong>discrete LP bands</strong> &mdash; concentrated Uniswap V4 positions at different tick ranges. Each band covers a price segment. Together they approximate a bonding curve with variable steepness.</p>
 <br>
-<pre><code>price(s) = BASE_PRICE + SLOPE * s</code></pre>
+<p>The hook owns all LP positions. External LP is permanently blocked via <code class="inline">beforeAddLiquidity</code>. Only the hook can add or remove liquidity.</p>
 <br>
-<p>Where <code class="inline">s</code> = tokens sold from that pool. Price increases linearly as supply is purchased.</p>
+<div class="list-item">&#8226; <strong>One active band at a time</strong> per pool</div>
+<div class="list-item">&#8226; <strong>afterSwap</strong> checks if price exited the current band and rebalances (up to 5 transitions per swap)</div>
+<div class="list-item">&#8226; Band widths vary: narrow at the start (steep price discovery), wider later (deep, stable)</div>
+<div class="list-item">&#8226; The curves never graduate &mdash; they are permanent infrastructure</div>
 <br>
-<div class="list-item">&#8226; <strong>BASE_PRICE</strong>: Floor price (~$0.0001 per TRIN in USD-equivalent across all pools)</div>
-<div class="list-item">&#8226; <strong>SLOPE</strong>: USDC pool has 1.5x slope (premium venue), ETH and $CHAOSLP at 1x baseline</div>
-<div class="list-item">&#8226; <strong>Buy math</strong>: Quadratic formula &mdash; solving the integral for exact token output given quote input</div>
-<div class="list-item">&#8226; <strong>Sell math</strong>: Integral from <code class="inline">(totalSold - sellAmount)</code> to <code class="inline">totalSold</code></div>
+
+<h3>Band Schedules</h3>
 <br>
-<h3>Curve Parameters</h3>
+<p>Each pool decelerates at a different rate after a shared steep ignition band:</p>
 <br>
 <table><thead><tr>
 <th>Pool</th>
-<th>Supply</th>
-<th>Slope</th>
-<th>Terminal Price</th>
-<th>Total Cost to Fill</th>
+<th>Bands</th>
+<th>TRINI</th>
+<th>Character</th>
+<th>Total Curve</th>
 </tr></thead><tbody>
-<tr><td>TRIN/USDC</td><td>334M</td><td>4.95e-11 (1.5x)</td><td>$0.01663</td><td>$2,794,400</td></tr>
-<tr><td>TRIN/WETH</td><td>333M</td><td>3.3e-11</td><td>$0.01109</td><td>$1,863,000</td></tr>
-<tr><td>TRIN/$CHAOSLP</td><td>233M</td><td>3.3e-11</td><td>$0.00779</td><td>$919,100</td></tr>
+<tr><td>USDC</td><td>16</td><td>450M</td><td>Fast decel &rarr; deep anchor</td><td>327,612x</td></tr>
+<tr><td>WETH</td><td>15</td><td>297M</td><td>Medium decel &rarr; relay</td><td>12,154x</td></tr>
+<tr><td>$CHAOSLP</td><td>15</td><td>153M</td><td>Slow decel &rarr; volatility engine</td><td>1,045x</td></tr>
 </tbody></table>
 <br>
-<p>The steeper USDC slope makes it the "premium" venue. Arbers buy cheap on ETH/$CHAOSLP and sell expensive on USDC, generating directional fee flow and burns.</p>
-<br>
-<h3>Buy / Sell</h3>
-<br>
-<p><strong>Buy</strong>: User sends quote asset (USDC, ETH, or $CHAOSLP) via the TrinityRouter. The WETH pool accepts native ETH directly &mdash; the router wraps it automatically. Price advances along the curve.</p>
-<br>
-<p><strong>Sell</strong>: User sends $TRIN via the router, receives quote asset. 1% of TRIN is burned on every sell. The WETH pool can return native ETH. Price retreats along the curve.</p>
-<br>
-<p>Both directions are always available. <strong>Guaranteed liquidity at a deterministic price.</strong></p>
-<br>
-<h3>Solvency Invariant</h3>
-<br>
-<p>The hook's quote reserves for each pool always equal the integral from 0 to <code class="inline">totalSold</code>. This holds for any sequence of buys and sells. Rounding always favors the protocol. Burns make the curve over-collateralized over time. This was verified with 27 automated tests including multi-user, cross-pool, and fuzz scenarios.</p>
+<p>The USDC curve is 327,612x deep &mdash; it effectively never finishes. ChaosLP is 1,045x &mdash; theoretically reachable, but its volatile underlying means the price oscillates rather than climbing steadily.</p>
 <br>
 <hr>
 <br>
@@ -253,105 +262,48 @@
 <br>
 <h3>1% Flat Trading Fee</h3>
 <br>
-<p>Every trade across all three pools incurs a <strong>1% fee</strong>.</p>
+<p>Every swap across all three pools incurs a <strong>1% fee on the input amount</strong>. Extracted in <code class="inline">beforeSwap</code> before the AMM runs.</p>
 <br>
 <h3>On Buys: 1% in quote asset &rarr; Multisig</h3>
 <br>
 <pre><code>User buys with 1000 USDC:
-  - 10 USDC (1%) --> multisig
-  - 990 USDC enters the hook's reserves</code></pre>
+  - 10 USDC (1%) --> multisig (fee recipient)
+  - 990 USDC enters the AMM</code></pre>
 <br>
-<p>All three pools send buy fees to the same multisig. The multisig then distributes: ops funding, staking gauge rewards (WETH, $CHAOSLP), etc.</p>
+<h3>On Sells: 1% in $TRINI &rarr; Burned</h3>
 <br>
-<h3>On Sells: 1% in $TRIN &rarr; Burned</h3>
-<br>
-<pre><code>User sells 10,000 TRIN for ETH:
-  - 100 TRIN (1%) --> 0x000...dead (burned permanently)
-  - 9,900 TRIN returned to the curve
-  - User receives ETH for the 9,900 TRIN at curve price</code></pre>
+<pre><code>User sells 10,000 TRINI for ETH:
+  - 100 TRINI (1%) --> 0x000...dead (burned permanently)
+  - 9,900 TRINI enters the AMM
+  - User receives ETH output</code></pre>
 <br>
 <p><strong>Every sell is deflationary. No exceptions. All three pools burn on sells.</strong></p>
 <br>
-<h3>Fee Flow</h3>
-<br>
-<pre><code>BUY (user sends quote asset, gets TRIN):
-  +------------------------------------------------------+
-  | 1% fee in quote asset --> Multisig                    |
-  |   Multisig distributes to: ops, staking gauges, etc  |
-  +------------------------------------------------------+
-
-SELL (user sends TRIN, gets quote asset):
-  +------------------------------------------------------+
-  | 1% fee in $TRIN --> 0xdead (BURNED)                    |
-  +------------------------------------------------------+</code></pre>
+<p>exactOutput swaps are blocked &mdash; the hook reverts on <code class="inline">amountSpecified &gt;= 0</code>. This closes a fee bypass vector found in V5.</p>
 <br>
 <hr>
 <br>
-<h2>Trading Dynamics</h2>
+<h2>The Arb Flywheel</h2>
 <br>
-<h3>Cross-Pool Arbitrage</h3>
+<p>Because the three curves have different shapes, TRINI has different prices on different pools at any given time. Arbitrage bots trade the spread:</p>
 <br>
-<p>Each pool prices TRIN independently. The USDC pool's steeper slope means TRIN is always most expensive there. Arbers exploit the spread:</p>
+<pre><code>1. Bot buys TRINI on the cheap pool (e.g., USDC -- deep, stable)
+2. Bot sells TRINI on the expensive pool (e.g., ChaosLP -- just spiked)
+3. Each leg pays 1% fee (2% round-trip)
+4. Buy fee --> multisig. Sell fee --> burned.
+5. Spread narrows -- until the next trade reopens it</code></pre>
 <br>
-<pre><code>Example (from arb simulation, tested on-chain):
-  After $100K organic USDC buy:
-    USDC spot: $0.003132/TRIN
-    WETH spot: $0.0001/TRIN (unchanged)
-    Spread: 3,032%
-
-  Arb bot:
-    1. Buy TRIN from WETH pool for 10 WETH (~$20.6K)
-       --> Gets 32.3B TRIN (gentle slope = more TRIN per dollar)
-    2. Sell TRIN to USDC pool
-       --> Receives $74,817 USDC
-    3. Profit: $54,197 (262% ROI)
-
-  After arb:
-    USDC spot: $0.001551 (down from $0.003132)
-    WETH spot: $0.001165 (up from $0.0001)
-    Spread: 3,032% --> 33% (convergence)</code></pre>
+<p>ChaosLP is the engine: thin depth (153M) + slow deceleration means every trade moves the price significantly. Its micro-cap underlying (~$2,600 MC) means constant external price shocks that create new dislocations.</p>
 <br>
-<p>Every arb trade is productive:</p>
-<div class="list-item">&#8226; Burns TRIN (sell side)</div>
-<div class="list-item">&#8226; Sends fees to multisig (buy side)</div>
-<div class="list-item">&#8226; Converges prices across pools</div>
+<p>USDC is the anchor: deep depth (450M) + fast deceleration means organic buys barely move the price. It provides the stable reference for arb bots.</p>
 <br>
-<h3>Multi-Round Convergence</h3>
-<br>
-<p>Tested with 5 consecutive arb rounds after a $200K organic USDC buy:</p>
-<br>
-<table><thead><tr>
-<th>Round</th>
-<th>Spread</th>
-<th>USDC Received</th>
-</tr></thead><tbody>
-<tr><td>1</td><td>4,328%</td><td>$84,804</td></tr>
-<tr><td>2</td><td>305%</td><td>$31,435</td></tr>
-<tr><td>3</td><td>144%</td><td>$20,707</td></tr>
-<tr><td>4</td><td>73%</td><td>$15,128</td></tr>
-<tr><td>5</td><td>30%</td><td>$11,555</td></tr>
-</tbody></table>
-<br>
-<p>Final spread: <strong>51 bps</strong> (near-equilibrium). Each round is less profitable as prices converge. The system self-balances.</p>
-<br>
-<h3>Per-Pool Sell Limits</h3>
-<br>
-<p>TRI is fungible across pools, but each pool tracks its own <code class="inline">totalSold</code>. You can't sell more TRIN to a pool than was bought from it. If an arb drains one pool's reserves, sellers exit through another pool. The hook enforces this with an <code class="inline">ExceedsSold</code> guard.</p>
+<p>The spread never fully closes because every arb cycle costs ~2% in fees. Bots stop when the spread falls below ~2%, then the next ChaosLP price move reopens the gap.</p>
 <br>
 <hr>
 <br>
-<h2>How Swaps Work (V4 Internals)</h2>
+<h2>Swaps (V4 Internals)</h2>
 <br>
-<h3>Pre-Settle Pattern</h3>
-<br>
-<p>V4 swaps route through the PoolManager's <code class="inline">unlock()</code> mechanism. The TrinityRouter uses a pre-settle pattern:</p>
-<br>
-<pre><code>1. Router settles user's input tokens to PoolManager BEFORE calling swap
-2. PoolManager calls hook.beforeSwap()
-3. Hook takes input from PM, computes bonding curve output, settles output to PM
-4. Router takes output from PM and sends to user</code></pre>
-<br>
-<p>For the WETH pool, native ETH is accepted: the router wraps ETH to WETH before settling. On sells, WETH is unwrapped back to ETH.</p>
+<p>Swaps go through Uniswap&rsquo;s <strong>Universal Router</strong> with the standard V4 swap encoding (same as Clanker). No custom router needed &mdash; the hook intercepts via callbacks.</p>
 <br>
 <h3>Hook Permissions</h3>
 <br>
@@ -359,93 +311,89 @@ SELL (user sends TRIN, gets quote asset):
 <th>Permission</th>
 <th>Purpose</th>
 </tr></thead><tbody>
-<tr><td>BEFORE_ADD_LIQUIDITY</td><td>Reverts &mdash; blocks external LPs. The hook IS the liquidity.</td></tr>
-<tr><td>BEFORE_SWAP</td><td>Intercepts every swap, executes bonding curve pricing</td></tr>
-<tr><td>BEFORE_SWAP_RETURNS_DELTA</td><td>Returns custom deltas that zero out the AMM entirely</td></tr>
+<tr><td>BEFORE_ADD_LIQUIDITY</td><td>Blocks external LP permanently. Only the hook manages positions.</td></tr>
+<tr><td>BEFORE_SWAP</td><td>Extracts 1% fee before the AMM runs</td></tr>
+<tr><td>BEFORE_SWAP_RETURNS_DELTA</td><td>Returns fee delta so the AMM sees reduced input</td></tr>
+<tr><td>AFTER_SWAP</td><td>Rebalances LP bands after price moves</td></tr>
 </tbody></table>
+<br>
+<p>For the WETH pool, native ETH is accepted: the Universal Router wraps ETH to WETH via <code class="inline">WRAP_ETH</code> command before the V4 swap.</p>
 <br>
 <hr>
 <br>
 <h2>Staking</h2>
 <br>
-<p>Stake TRIN to earn rewards from pool fees. Uses the ChaosLPHub + RewardGauge pattern.</p>
+<p>Stake TRINI to earn rewards from pool fees. Uses the ChaosLPHub + RewardGauge pattern.</p>
 <br>
-<div class="list-item">&#8226; <strong>Hub</strong>: Stake TRIN, earn TRIN (hub rewards, funded by multisig)</div>
+<div class="list-item">&#8226; <strong>Hub</strong>: Stake TRINI, earn TRINI (hub rewards, funded by multisig)</div>
 <div class="list-item">&#8226; <strong>WETH Gauge</strong>: Earn WETH (from ETH pool buy fees, forwarded by multisig)</div>
-<div class="list-item">&#8226; <strong>$CHAOSLP Gauge</strong>: Earn $CHAOSLP (from $CHAOSLP pool buy fees, forwarded by multisig)</div>
 <br>
-<p>Multisig collects fees from all three pools, then distributes to gauges via <code class="inline">notifyRewardAmount()</code>. Staking locks TRIN, reducing sell pressure on curves.</p>
-<br>
-<hr>
-<br>
-<h2>Burn Mechanics</h2>
-<br>
-<p>Every sell on every pool burns 1% of the TRIN input. Burned tokens go to <code class="inline">0x000...dEaD</code> and can never be recovered.</p>
-<br>
-<h3>Burn Accounting</h3>
-<br>
-<div class="list-item">&#8226; Burned tokens leave circulation but <code class="inline">totalSold</code> only decreases by the 99% returned</div>
-<div class="list-item">&#8226; The curve retains more reserves than <code class="inline">totalSold</code> implies &mdash; over-collateralized</div>
-<div class="list-item">&#8226; Burns decelerate naturally as price rises (each dollar of sells burns fewer tokens)</div>
+<p>Multisig collects buy fees from all three pools, then distributes to gauges via <code class="inline">notifyRewardAmount()</code>. Staking locks TRINI, reducing circulating supply.</p>
 <br>
 <hr>
 <br>
-<h2>Deployment &amp; Governance</h2>
+<h2>Governance &amp; Trust</h2>
 <br>
-<h3>Multisig Control</h3>
+<p>All contracts are owned by the multisig (<code class="inline">0xb7DD...8a0</code>). The multisig can:</p>
 <br>
-<p>All contracts are owned by the Rails Multisig. The multisig:</p>
+<div class="list-item">&#8226; <strong>emergencyWithdrawLP</strong> &mdash; recover the hook&rsquo;s LP positions</div>
+<div class="list-item">&#8226; <strong>updateFeeRecipient</strong> &mdash; redirect fee collection</div>
+<div class="list-item">&#8226; <strong>withdrawTokens</strong> &mdash; recover ERC20s held by the hook</div>
+<div class="list-item">&#8226; <strong>Fund staking gauges</strong> &mdash; distribute rewards</div>
 <br>
-<div class="list-item">&#8226; <strong>Owns</strong> the TrinityHook (can register new pools, update fee recipients)</div>
-<div class="list-item">&#8226; <strong>Receives</strong> all buy fees across all pools</div>
-<div class="list-item">&#8226; <strong>Distributes</strong> fees to staking gauges</div>
-<div class="list-item">&#8226; <strong>Cannot</strong> withdraw bonding curve reserves (hook holds TRIN, quote reserves are protocol-owned)</div>
+<p>The multisig <strong>cannot</strong> change the fee rate (hardcoded 1%), the burn mechanism, or the band configurations (set at registration).</p>
 <br>
 <h3>Immutability</h3>
 <br>
 <table><thead><tr>
 <th>Parameter</th>
 <th>Mutable?</th>
-<th>Rationale</th>
 </tr></thead><tbody>
-<tr><td>Curve formula (basePrice, slope)</td><td><strong>No</strong></td><td>Set at registerPool, immutable per pool</td></tr>
-<tr><td>Fee rate (1%)</td><td><strong>No</strong></td><td>Hardcoded in hook contract</td></tr>
-<tr><td>Burn on sells</td><td><strong>No</strong></td><td>Hardcoded in hook contract</td></tr>
-<tr><td>Hook address</td><td><strong>No</strong></td><td>V4 hooks are immutable (address encodes permissions)</td></tr>
-<tr><td>Fee recipient per pool</td><td><strong>Yes</strong> (owner)</td><td>Multisig can redirect fees if needed</td></tr>
+<tr><td>Fee rate (1%)</td><td><strong>No</strong> &mdash; hardcoded</td></tr>
+<tr><td>Burn on sells</td><td><strong>No</strong> &mdash; hardcoded</td></tr>
+<tr><td>Band configuration per pool</td><td><strong>No</strong> &mdash; set at registerPool</td></tr>
+<tr><td>External LP block</td><td><strong>No</strong> &mdash; permanent</td></tr>
+<tr><td>Hook address &amp; permissions</td><td><strong>No</strong> &mdash; V4 hooks are immutable</td></tr>
+<tr><td>Fee recipient per pool</td><td><strong>Yes</strong> &mdash; owner only</td></tr>
+<tr><td>LP positions</td><td><strong>Yes</strong> &mdash; owner can emergency withdraw</td></tr>
 </tbody></table>
 <br>
 <hr>
 <br>
-<h2>Risk Analysis</h2>
+<h2>Risk Disclosure</h2>
+<br>
+<div class="warning">
+<strong>This is a prototype.</strong> It is experimental DeFi built by a small team. The contracts have been through internal review (two audit cycles, six passes) but have <strong>not been independently audited by a third party</strong>. Unknown bugs may exist. Don&rsquo;t put in more than you&rsquo;re comfortable losing entirely.
+</div>
 <br>
 <table><thead><tr>
 <th>Risk</th>
 <th>Severity</th>
 <th>Mitigation</th>
 </tr></thead><tbody>
-<tr><td>Low volume</td><td>Medium</td><td>1% fee + flat curve optimized for arb-driven volume</td></tr>
-<tr><td>Cross-pool arb drain</td><td>Low</td><td>ExceedsSold guard; sellers exit through other pools</td></tr>
+<tr><td>Smart contract bug</td><td>Critical</td><td>Internal audit (6 passes), 18 tests passing, all contracts verified</td></tr>
+<tr><td>Multisig compromise</td><td>High</td><td>Can drain hook LP, not user wallets. Timelock can be added later.</td></tr>
+<tr><td>Low volume / no arb</td><td>Medium</td><td>Three curve shapes create persistent dislocations. ChaosLP volatility feeds the flywheel.</td></tr>
 <tr><td>$CHAOSLP goes to zero</td><td>Low impact</td><td>That pool dies, 2/3 of liquidity unaffected</td></tr>
-<tr><td>V4 PoolManager bug</td><td>Medium</td><td>V4 is audited; hook is simple (no complex state transitions)</td></tr>
-<tr><td>Hook immutability</td><td>Medium</td><td>Can't fix bugs without redeploying hook + new pools</td></tr>
-<tr><td>MEV / sandwich</td><td>Low</td><td>1% fee + burn = ~3% attacker cost; slippage protection on router</td></tr>
-<tr><td>Reserve insolvency</td><td>Critical</td><td>Proven solvent by construction; 27 tests including cross-pool arb sims</td></tr>
+<tr><td>MEV / sandwich</td><td>Low</td><td>1% fee + burn = ~3% attacker cost per round-trip</td></tr>
+<tr><td>Cross-pool TRINI leakage</td><td>Accepted</td><td>Leftover TRINI auto-redistributes across pools. Quote-side tokens never cross-contaminate.</td></tr>
 </tbody></table>
 <br>
 <hr>
 <br>
 <h2>Summary</h2>
 <br>
-<p>Trinity V2 is a Uniswap V4 hook that runs three independent bonding curves through a single contract. Swaps are visible to the entire Uniswap ecosystem &mdash; aggregators, bots, and block explorers see them natively.</p>
-<br>
 <div class="list-item">&#8226; <strong>Buys</strong>: 1% fee in quote asset &rarr; multisig (WETH pool accepts native ETH)</div>
-<div class="list-item">&#8226; <strong>Sells</strong>: 1% of TRIN &rarr; burned permanently</div>
-<div class="list-item">&#8226; <strong>Arb</strong>: Differentiated slopes create cross-pool arb surfaces that converge prices, burn TRIN, and generate fees</div>
-<div class="list-item">&#8226; <strong>Staking</strong>: Stake TRIN, earn WETH + $CHAOSLP from pool fees</div>
+<div class="list-item">&#8226; <strong>Sells</strong>: 1% of TRINI &rarr; burned permanently</div>
+<div class="list-item">&#8226; <strong>Arb</strong>: Three different curve shapes create persistent cross-pool dislocations. Every arb burns supply and funds the protocol.</div>
+<div class="list-item">&#8226; <strong>Staking</strong>: Stake TRINI, earn WETH from pool fees</div>
+<div class="list-item">&#8226; <strong>Permanent</strong>: No graduation. Curves run forever. Fees collect forever.</div>
 <br>
-<p>The flat curve and 1% fee create a ~2% arb band across pools. Every arb trade burns supply and funds the protocol. <strong>Trading surfaces generate information corrections (arb), which generate fees, which compound as structural value.</strong></p>
-<br>
+<p style="margin-top:32px; text-align:center; color:var(--muted); font-size:0.85em;">
+Built by <a href="https://epicdylan.com" style="color:var(--green)">epicdylan</a> &bull;
+<a href="https://github.com/ipfsnut/trinity-prototype" style="color:var(--green)">GitHub</a> &bull;
+All contracts <a href="https://basescan.org/address/0xe89a658e4bec91caea242aD032280a5D3015C8c8" style="color:var(--green)">verified on Basescan</a>
+</p>
 </div>
 </body>
 </html>
