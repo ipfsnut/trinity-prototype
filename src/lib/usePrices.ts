@@ -7,7 +7,6 @@ import { ADDRESSES, POOLS, QUOTER_ABI, isTriCurrency0 } from "./contracts";
 
 export interface Prices {
   triniUsd: number | null;
-  chaoslpUsd: number | null;
   wethUsd: number | null;
 }
 
@@ -34,7 +33,6 @@ export function usePrices(): Prices {
   const publicClient = usePublicClient();
   const [prices, setPrices] = useState<Prices>({
     triniUsd: null,
-    chaoslpUsd: null,
     wethUsd: null,
   });
 
@@ -45,7 +43,6 @@ export function usePrices(): Prices {
     async function fetchPrices() {
       const quoteAmount = parseUnits("1000000", 18); // 1M TRINI
       let triniUsd: number | null = null;
-      let chaoslpUsd: number | null = null;
       let wethUsd: number | null = null;
 
       // Step 1: TRINI price in USD (required for everything else)
@@ -57,22 +54,11 @@ export function usePrices(): Prices {
       }
 
       if (triniUsd === null || triniUsd === 0) {
-        setPrices({ triniUsd, chaoslpUsd, wethUsd });
+        setPrices({ triniUsd, wethUsd });
         return;
       }
 
-      // Step 2: ChaosLP price (independent)
-      try {
-        const clpOut = await quoteTriniToAsset(client, POOLS.chaoslp, quoteAmount);
-        const clpOutNum = Number(formatUnits(clpOut, 18));
-        if (clpOutNum > 0) {
-          chaoslpUsd = (1_000_000 * triniUsd) / clpOutNum;
-        }
-      } catch (e) {
-        console.error("[usePrices] TRINI/CLP quote failed:", e);
-      }
-
-      // Step 3: WETH price (independent)
+      // Step 2: WETH price (independent)
       try {
         const wethOut = await quoteTriniToAsset(client, POOLS.eth, quoteAmount);
         const wethOutNum = Number(formatUnits(wethOut, 18));
@@ -83,7 +69,7 @@ export function usePrices(): Prices {
         console.error("[usePrices] TRINI/WETH quote failed:", e);
       }
 
-      setPrices({ triniUsd, chaoslpUsd, wethUsd });
+      setPrices({ triniUsd, wethUsd });
     }
 
     fetchPrices();

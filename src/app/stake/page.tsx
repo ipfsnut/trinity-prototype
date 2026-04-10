@@ -89,7 +89,7 @@ export default function StakePage() {
     return (annualRewardUsd / stakedUsd) * 100;
   }
 
-  const chaoslpApr = computeApr(chaoslpRewardRate, prices.chaoslpUsd);
+  const chaoslpApr = computeApr(chaoslpRewardRate, null);
   const wethApr = computeApr(wethRewardRate, prices.wethUsd);
   const { data: triBalance, refetch: refetchTriBal } = useReadContract({
     address: ADDRESSES.trini, abi: trinityTokenAbi, functionName: "balanceOf",

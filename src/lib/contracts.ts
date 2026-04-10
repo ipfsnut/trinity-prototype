@@ -1,9 +1,13 @@
 import { parseAbi } from "viem";
 
-// ── V6 Deployed addresses (Base mainnet) ────────────────────────────
+// ── Deployed addresses (Base mainnet) ──────────────────────────────
 export const ADDRESSES = {
   trini: "0x17790eFD4896A981Db1d9607A301BC4F7407F3dF" as `0x${string}`,
+  // V6 hook manages USDC + WETH pools (1% fee)
   hook: "0xe89a658e4bec91caea242aD032280a5D3015C8c8" as `0x${string}`,
+  // V7 hooks: one per pool, 5% fee
+  hookClankerV7: "0x9f35560a57666Bc8A8889A87f220bA282b57c8C8" as `0x${string}`,
+  hookWethV7: "0x07e1E16dfa4Fc5418CEf383E0D22EE139aE108C8" as `0x${string}`,
   stakingHub: "0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6" as `0x${string}`,
   wethGauge: "0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2" as `0x${string}`,
   chaoslpGauge: "0xa142dcE717820F0f92E5f89d9aFA7B61A4FA1904" as `0x${string}`,
@@ -14,6 +18,7 @@ export const ADDRESSES = {
   // Quote assets on Base
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
   weth: "0x4200000000000000000000000000000000000006" as `0x${string}`,
+  clanker: "0x1bc0c42215582d5A085795f4baDbaC3ff36d1Bcb" as `0x${string}`,
   chaoslp: "0x8454d062506a27675706148ECDd194E45e44067a" as `0x${string}`,
 } as const;
 
@@ -97,7 +102,10 @@ export const QUOTER_ABI = [{
 
 // ── V4 Pool Keys (tickSpacing=200, fee=0, with hook) ────────────────
 
-export function makePoolKey(quoteAsset: `0x${string}`) {
+export function makePoolKey(
+  quoteAsset: `0x${string}`,
+  hookAddr: `0x${string}` = ADDRESSES.hook
+) {
   const tri = ADDRESSES.trini.toLowerCase();
   const quote = quoteAsset.toLowerCase();
   const [c0, c1] =
@@ -109,12 +117,12 @@ export function makePoolKey(quoteAsset: `0x${string}`) {
     currency1: c1,
     fee: 0,
     tickSpacing: 200,
-    hooks: ADDRESSES.hook,
+    hooks: hookAddr,
   };
 }
 
 // ── Pool config ─────────────────────────────────────────────────────
-export type PoolId = "usdc" | "eth" | "chaoslp";
+export type PoolId = "usdc" | "eth" | "clanker";
 
 export const POOLS: Record<
   PoolId,
@@ -146,14 +154,14 @@ export const POOLS: Record<
     color: "#4e9af0",
     geckoUrl: "https://www.geckoterminal.com/base/pools/0x00275064520d3ef7a2f653ef850f1589bcbdb3b346cd1e6bc96f888d204ff149",
   },
-  chaoslp: {
-    label: "TRINI / $CHAOSLP",
-    quoteSymbol: "$CHAOSLP",
-    quoteAsset: ADDRESSES.chaoslp,
-    poolKey: makePoolKey(ADDRESSES.chaoslp),
+  clanker: {
+    label: "TRINI / Clanker",
+    quoteSymbol: "CLANKER",
+    quoteAsset: ADDRESSES.clanker,
+    poolKey: makePoolKey(ADDRESSES.clanker, ADDRESSES.hookClankerV7),
     quoteDecimals: 18,
     color: "#e94560",
-    geckoUrl: "https://www.geckoterminal.com/base/pools/0x82b8764cf567ba42de55e6113efcadc9c5526c748f781ff24b9bc174bfc51bd4",
+    geckoUrl: "https://www.geckoterminal.com/base/pools/0x6e7fc35734cef7c2fd8993f5fa05d93493e97979f43915249900e66a24c0d145",
   },
 };
 

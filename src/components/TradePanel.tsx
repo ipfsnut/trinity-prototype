@@ -136,12 +136,8 @@ export function TradePanel() {
         return;
       }
 
-      // ChaosLP has infinite Permit2 allowance built-in (Permit2AllowanceIsFixedAtInfinity)
-      // — calling approve() on ChaosLP reverts, so skip the ERC20 → Permit2 step entirely
-      const skipErc20Approve = spendToken.toLowerCase() === ADDRESSES.chaoslp.toLowerCase();
-
       // Step 1: Check + approve token to Permit2
-      if (!skipErc20Approve) {
+      {
         const permit2Allowance = await publicClient.readContract({
           address: spendToken, abi: erc20Abi, functionName: "allowance",
           args: [address, ADDRESSES.permit2],
