@@ -326,25 +326,33 @@ export function TradePanel() {
         {(Object.keys(POOLS) as PoolId[]).map((id) => (
           <button key={id}
             onClick={() => { setPool(id); setAmount(""); setStep("input"); }}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors flex flex-col items-center leading-tight ${
               pool === id ? "text-white" : "bg-[#16213e] text-[#8892a4] hover:text-white"
             }`}
             style={pool === id ? { background: POOLS[id].color } : {}}
           >
-            {POOLS[id].quoteSymbol}
+            <span>{POOLS[id].quoteSymbol}</span>
+            <span className={`text-[10px] ${pool === id ? "opacity-80" : "opacity-60"}`}>
+              {POOLS[id].feeLabel} fee
+            </span>
           </button>
         ))}
       </div>
 
-      {/* GeckoTerminal link */}
-      <a
-        href={p.geckoUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="text-xs text-[#8892a4] hover:text-[#4e9af0] transition-colors"
-      >
-        {p.label} on GeckoTerminal &rarr;
-      </a>
+      {/* Pool metadata */}
+      <div className="flex items-center justify-between text-xs">
+        <a
+          href={p.geckoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[#8892a4] hover:text-[#4e9af0] transition-colors"
+        >
+          {p.label} on GeckoTerminal &rarr;
+        </a>
+        <span className="text-[#8892a4]">
+          Fee: <span className="font-medium text-white">{p.feeLabel}</span> on every swap
+        </span>
+      </div>
 
       {/* Buy / Sell toggle */}
       <div className="flex gap-2">

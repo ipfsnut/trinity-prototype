@@ -134,6 +134,8 @@ export const POOLS: Record<
     quoteDecimals: number;
     color: string;
     geckoUrl: string;
+    feeLabel: string;
+    feeBps: number;
   }
 > = {
   usdc: {
@@ -144,6 +146,8 @@ export const POOLS: Record<
     quoteDecimals: 6,
     color: "#4ecca3",
     geckoUrl: "https://www.geckoterminal.com/base/pools/0xd35b828aa74cd7832be68003ce44de7767987a27b8ef654ca6c595e7584a156e",
+    feeLabel: "1%",
+    feeBps: 100,
   },
   eth: {
     label: "TRINI / ETH",
@@ -153,6 +157,8 @@ export const POOLS: Record<
     quoteDecimals: 18,
     color: "#4e9af0",
     geckoUrl: "https://www.geckoterminal.com/base/pools/0x00275064520d3ef7a2f653ef850f1589bcbdb3b346cd1e6bc96f888d204ff149",
+    feeLabel: "1%",
+    feeBps: 100,
   },
   clanker: {
     label: "TRINI / Clanker",
@@ -162,6 +168,8 @@ export const POOLS: Record<
     quoteDecimals: 18,
     color: "#e94560",
     geckoUrl: "https://www.geckoterminal.com/base/pools/0x6e7fc35734cef7c2fd8993f5fa05d93493e97979f43915249900e66a24c0d145",
+    feeLabel: "5%",
+    feeBps: 500,
   },
 };
 
