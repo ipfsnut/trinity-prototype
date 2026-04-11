@@ -95,9 +95,11 @@ export function TradePanel() {
 
   // ── Quote preview ─────────────────────────────────────────────
   const triIs0 = isTriCurrency0(p.quoteAsset);
+  const [quoteFailed, setQuoteFailed] = useState(false);
 
   useEffect(() => {
     setQuoteOut(null);
+    setQuoteFailed(false);
     if (parsedAmount === 0n || !publicClient) return;
 
     const zeroForOne = side === "buy" ? !triIs0 : triIs0;
@@ -120,7 +122,11 @@ export function TradePanel() {
       }],
     }).then((result) => {
       setQuoteOut(result.result[0]);
-    }).catch(() => setQuoteOut(null));
+      setQuoteFailed(false);
+    }).catch(() => {
+      setQuoteOut(null);
+      setQuoteFailed(true);
+    });
   }, [parsedAmount, pool, side, publicClient, p.poolKey, triIs0]);
 
   // ── Approve (ERC20 -> Permit2 -> Universal Router) ────────────
@@ -413,7 +419,35 @@ export function TradePanel() {
       </div>
 
       {/* Preview + fee + slippage */}
-      {parsedAmount > 0n && (
+      {parsedAmount > 0n && quoteFailed && side === "sell" && pool === "usdc" && (
+        <div className="bg-[#1a0a0a] rounded-lg p-4 border border-[#e94560]/40 space-y-2">
+          <div className="text-sm font-medium text-[#e94560]">USDC pool sold out</div>
+          <p className="text-xs text-[#e0d4d4] leading-relaxed">
+            Arbers have drained the USDC reserves out of this pool. The USDC pool can&apos;t accept TRINI sells right now &mdash;
+            it can only accept buys until the price corrects. Try selling on the WETH or Clanker pool instead.
+          </p>
+          <p className="text-xs text-[#8892a4] leading-relaxed">
+            The USDC pool will absorb sells again once arb flow refills its reserves (when the WETH/TRINI implied price
+            exceeds the WETH/USDC price by more than the round-trip fee threshold).
+          </p>
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => { setPool("eth"); setAmount(""); setStep("input"); }}
+              className="flex-1 px-3 py-1.5 rounded text-xs font-medium bg-[#4e9af0] text-white hover:bg-[#4e9af0]/80 transition-colors"
+            >
+              Sell on WETH (1%)
+            </button>
+            <button
+              onClick={() => { setPool("clanker"); setAmount(""); setStep("input"); }}
+              className="flex-1 px-3 py-1.5 rounded text-xs font-medium bg-[#e94560] text-white hover:bg-[#e94560]/80 transition-colors"
+            >
+              Sell on Clanker (5%)
+            </button>
+          </div>
+        </div>
+      )}
+
+      {parsedAmount > 0n && !(quoteFailed && side === "sell" && pool === "usdc") && (
         <div className="bg-[#16213e] rounded-lg p-4 border border-[#0f3460] space-y-3">
           {quoteOut !== null && quoteOut > 0n && (
             <div>
@@ -424,9 +458,9 @@ export function TradePanel() {
             </div>
           )}
           <div className="text-xs text-[#8892a4]">
-            1% fee {side === "buy"
-              ? `(${fmt(parsedAmount / 100n, spendDecimals, 4)} ${spendSymbol} to multisig)`
-              : "(1% TRIN burned)"}
+            {p.feeLabel} fee {side === "buy"
+              ? `(${fmt(parsedAmount * BigInt(p.feeBps) / 10000n, spendDecimals, 4)} ${spendSymbol} to multisig)`
+              : `(${p.feeLabel} TRINI burned)`}
           </div>
           <div className="flex items-center gap-2 text-xs">
             <span className="text-[#8892a4]">Slippage:</span>
