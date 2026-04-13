@@ -16,9 +16,9 @@ import {
 } from "@/lib/contracts";
 
 const MULTISIG = "0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0";
-const CHAOSLP = ADDRESSES.chaoslp;
+const CLANKER = ADDRESSES.clanker;
 const WETH = ADDRESSES.weth;
-const CHAOSLP_GAUGE = ADDRESSES.chaoslpGauge;
+const CLANKER_GAUGE = ADDRESSES.clankerGauge;
 
 export function AdminPanel() {
   const { address } = useAccount();
@@ -28,7 +28,7 @@ export function AdminPanel() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [wethAmount, setWethAmount] = useState("");
-  const [chaoslpAmount, setChaoslpAmount] = useState("");
+  const [clankerAmount, setClankerAmount] = useState("");
 
   if (!address || address.toLowerCase() !== MULTISIG.toLowerCase()) {
     return null;
@@ -39,12 +39,12 @@ export function AdminPanel() {
       { address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "rewardRate" },
       { address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "periodFinish" },
       { address: WETH, abi: erc20Abi, functionName: "balanceOf", args: [MULTISIG as `0x${string}`] },
-      { address: CHAOSLP, abi: erc20Abi, functionName: "balanceOf", args: [MULTISIG as `0x${string}`] },
-      { address: CHAOSLP_GAUGE, abi: rewardGaugeAbi, functionName: "rewardRate" },
-      { address: CHAOSLP_GAUGE, abi: rewardGaugeAbi, functionName: "periodFinish" },
+      { address: CLANKER, abi: erc20Abi, functionName: "balanceOf", args: [MULTISIG as `0x${string}`] },
+      { address: CLANKER_GAUGE, abi: rewardGaugeAbi, functionName: "rewardRate" },
+      { address: CLANKER_GAUGE, abi: rewardGaugeAbi, functionName: "periodFinish" },
       // Check existing approvals
       { address: WETH, abi: erc20Abi, functionName: "allowance", args: [MULTISIG as `0x${string}`, ADDRESSES.wethGauge] },
-      { address: CHAOSLP, abi: erc20Abi, functionName: "allowance", args: [MULTISIG as `0x${string}`, CHAOSLP_GAUGE] },
+      { address: CLANKER, abi: erc20Abi, functionName: "allowance", args: [MULTISIG as `0x${string}`, CLANKER_GAUGE] },
     ],
   });
 
@@ -52,19 +52,19 @@ export function AdminPanel() {
   const wethPeriodFinish = gaugeData?.[1]?.result as bigint | undefined;
   const multisigWeth = gaugeData?.[2]?.result as bigint | undefined;
   const multisigChaoslp = gaugeData?.[3]?.result as bigint | undefined;
-  const chaoslpRewardRate = gaugeData?.[4]?.result as bigint | undefined;
-  const chaoslpPeriodFinish = gaugeData?.[5]?.result as bigint | undefined;
+  const clankerRewardRate = gaugeData?.[4]?.result as bigint | undefined;
+  const clankerPeriodFinish = gaugeData?.[5]?.result as bigint | undefined;
   const wethAllowance = gaugeData?.[6]?.result as bigint | undefined;
-  const chaoslpAllowance = gaugeData?.[7]?.result as bigint | undefined;
+  const clankerAllowance = gaugeData?.[7]?.result as bigint | undefined;
 
   const wethGaugeActive = wethPeriodFinish !== undefined && Number(wethPeriodFinish) > Date.now() / 1000;
-  const chaoslpGaugeActive = chaoslpPeriodFinish !== undefined && Number(chaoslpPeriodFinish) > Date.now() / 1000;
+  const clankerGaugeActive = clankerPeriodFinish !== undefined && Number(clankerPeriodFinish) > Date.now() / 1000;
 
   const parsedWeth = wethAmount ? parseUnits(wethAmount, 18) : 0n;
-  const parsedChaoslp = chaoslpAmount ? parseUnits(chaoslpAmount, 18) : 0n;
+  const parsedClanker = clankerAmount ? parseUnits(clankerAmount, 18) : 0n;
 
   const wethApproved = wethAllowance !== undefined && parsedWeth > 0n && wethAllowance >= parsedWeth;
-  const chaoslpApproved = chaoslpAllowance !== undefined && parsedChaoslp > 0n && chaoslpAllowance >= parsedChaoslp;
+  const clankerApproved = clankerAllowance !== undefined && parsedClanker > 0n && clankerAllowance >= parsedClanker;
 
   const fmt = (val: bigint | undefined, dec: number, dp = 4) =>
     val !== undefined ? Number(formatUnits(val, dec)).toFixed(dp) : "—";
@@ -111,31 +111,31 @@ export function AdminPanel() {
     safeSend(ADDRESSES.wethGauge, data, "Fund WETH gauge");
   }
 
-  function approveChaoslp() {
+  function approveClanker() {
     const data = encodeFunctionData({
       abi: erc20Abi,
       functionName: "approve",
-      args: [CHAOSLP_GAUGE, parsedChaoslp],
+      args: [CLANKER_GAUGE, parsedClanker],
     });
-    safeSend(CHAOSLP, data, "Approve $CHAOSLP");
+    safeSend(CLANKER, data, "Approve $CLANKER");
   }
 
-  function fundChaoslp() {
+  function fundClanker() {
     const data = encodeFunctionData({
       abi: rewardGaugeAbi,
       functionName: "notifyRewardAmount",
-      args: [parsedChaoslp],
+      args: [parsedClanker],
     });
-    safeSend(CHAOSLP_GAUGE, data, "Fund $CHAOSLP gauge");
+    safeSend(CLANKER_GAUGE, data, "Fund $CLANKER gauge");
   }
 
   function registerChaoslpGauge() {
     const data = encodeFunctionData({
       abi: stakingHubAdminAbi,
       functionName: "addExtraReward",
-      args: [CHAOSLP_GAUGE],
+      args: [CLANKER_GAUGE],
     });
-    safeSend(ADDRESSES.stakingHub, data, "Register $CHAOSLP gauge");
+    safeSend(ADDRESSES.stakingHub, data, "Register $CLANKER gauge");
   }
 
   return (
@@ -155,7 +155,7 @@ export function AdminPanel() {
           <div className="text-white font-mono">{fmt(multisigWeth, 18, 6)}</div>
         </div>
         <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
-          <div className="text-[#8892a4]">Multisig $CHAOSLP</div>
+          <div className="text-[#8892a4]">Multisig $CLANKER</div>
           <div className="text-white font-mono">{fmt(multisigChaoslp, 18, 2)}</div>
         </div>
       </div>
@@ -201,25 +201,25 @@ export function AdminPanel() {
       {/* ChaosLP Gauge */}
       <div className="bg-[#0d1117] rounded-lg p-4 border border-[#0f3460] space-y-3">
         <div className="flex justify-between items-center">
-          <span className="text-sm text-[#e94560] font-medium">$CHAOSLP Gauge</span>
-          <span className={`text-xs font-mono ${chaoslpGaugeActive ? "text-[#4ecca3]" : "text-[#8892a4]"}`}>
-            {chaoslpGaugeActive ? `Streaming — ${fmt(chaoslpRewardRate! * 86400n, 18, 2)}/day` : "Not funded"}
+          <span className="text-sm text-[#e94560] font-medium">$CLANKER Gauge</span>
+          <span className={`text-xs font-mono ${clankerGaugeActive ? "text-[#4ecca3]" : "text-[#8892a4]"}`}>
+            {clankerGaugeActive ? `Streaming — ${fmt(clankerRewardRate! * 86400n, 18, 2)}/day` : "Not funded"}
           </span>
         </div>
         <div className="text-xs text-[#8892a4] font-mono break-all">
-          Gauge: {CHAOSLP_GAUGE}
+          Gauge: {CLANKER_GAUGE}
         </div>
         <div className="flex gap-2 items-center">
-          <input type="text" inputMode="decimal" placeholder="$CHAOSLP amount"
-            value={chaoslpAmount} onChange={(e) => setChaoslpAmount(e.target.value)}
+          <input type="text" inputMode="decimal" placeholder="$CLANKER amount"
+            value={clankerAmount} onChange={(e) => setClankerAmount(e.target.value)}
             className="flex-1 bg-[#16213e] text-white text-sm font-mono rounded-lg px-3 py-2 outline-none border border-[#0f3460]" />
-          {!chaoslpApproved ? (
-            <button onClick={approveChaoslp} disabled={loading !== null || parsedChaoslp === 0n}
+          {!clankerApproved ? (
+            <button onClick={approveClanker} disabled={loading !== null || parsedClanker === 0n}
               className="px-4 py-2 rounded-lg bg-[#f0c040] text-black text-sm font-medium disabled:opacity-50">
               Approve
             </button>
           ) : (
-            <button onClick={fundChaoslp} disabled={loading !== null || parsedChaoslp === 0n}
+            <button onClick={fundClanker} disabled={loading !== null || parsedClanker === 0n}
               className="px-4 py-2 rounded-lg bg-[#e94560] text-white text-sm font-medium disabled:opacity-50">
               Fund
             </button>
@@ -231,7 +231,7 @@ export function AdminPanel() {
               onClick={() => {
                 if (!multisigChaoslp) return;
                 const val = pct === 100 ? multisigChaoslp : multisigChaoslp * BigInt(pct) / 100n;
-                setChaoslpAmount(formatUnits(val, 18));
+                setClankerAmount(formatUnits(val, 18));
               }}
               className="flex-1 py-1 text-xs rounded bg-[#16213e] text-[#8892a4] hover:text-white disabled:opacity-30 transition-colors"
             >{pct}%</button>

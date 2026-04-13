@@ -14,7 +14,7 @@ export default function Home() {
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-white">Trade $TRINI</h1>
             <p className="text-sm text-[#8892a4]">
-              Three curves. 1% fee. Every sell burns.
+              Three V8 curves. Continuous liquidity. Every sell burns.
             </p>
             <div className="mt-2 flex items-center gap-2 text-xs text-[#8892a4] bg-[#0d1117] rounded-lg px-3 py-2 border border-[#0f3460]">
               <span>TRINI:</span>
@@ -38,9 +38,10 @@ export default function Home() {
             <div className="text-[#8892a4] font-medium mb-2">Verified Contracts (Base)</div>
             {[
               { label: "TRINI Token", addr: "0x17790eFD4896A981Db1d9607A301BC4F7407F3dF" },
-              { label: "TrinityHookV6", addr: "0xe89a658e4bec91caea242aD032280a5D3015C8c8" },
+              { label: "TRINI / USDC (1%)", addr: "0x995d479bdd10686BDfeC8E8ba5f86357211bC888" },
+              { label: "TRINI / WETH (2%)", addr: "0x089d5FFe033aF0726aAbfAf2276F269D4Fe78888" },
+              { label: "TRINI / Clanker (2%)", addr: "0x95911f10849fAB05fdf8d42599B34dC8A17b8888" },
               { label: "Staking Hub", addr: "0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6" },
-              { label: "WETH Gauge", addr: "0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2" },
             ].map((c) => (
               <div key={c.addr} className="flex justify-between items-center">
                 <span className="text-[#8892a4]">{c.label}</span>

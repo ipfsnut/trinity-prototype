@@ -56,23 +56,23 @@ export default function StakePage() {
     address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "earned",
     args: address ? [address] : undefined, query: { enabled: !!address },
   });
-  const { data: earnedChaoslp, refetch: refetchEarnedChaoslp } = useReadContract({
-    address: ADDRESSES.chaoslpGauge, abi: rewardGaugeAbi, functionName: "earned",
+  const { data: earnedClanker, refetch: refetchEarnedChaoslp } = useReadContract({
+    address: ADDRESSES.clankerGauge, abi: rewardGaugeAbi, functionName: "earned",
     args: address ? [address] : undefined, query: { enabled: !!address },
   });
   const { data: gaugeRates } = useReadContracts({
     contracts: [
-      { address: ADDRESSES.chaoslpGauge, abi: rewardGaugeAbi, functionName: "rewardRate" },
-      { address: ADDRESSES.chaoslpGauge, abi: rewardGaugeAbi, functionName: "periodFinish" },
+      { address: ADDRESSES.clankerGauge, abi: rewardGaugeAbi, functionName: "rewardRate" },
+      { address: ADDRESSES.clankerGauge, abi: rewardGaugeAbi, functionName: "periodFinish" },
       { address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "rewardRate" },
       { address: ADDRESSES.wethGauge, abi: rewardGaugeAbi, functionName: "periodFinish" },
     ],
   });
-  const chaoslpRewardRate = gaugeRates?.[0]?.result as bigint | undefined;
-  const chaoslpPeriodFinish = gaugeRates?.[1]?.result as bigint | undefined;
+  const clankerRewardRate = gaugeRates?.[0]?.result as bigint | undefined;
+  const clankerPeriodFinish = gaugeRates?.[1]?.result as bigint | undefined;
   const wethRewardRate = gaugeRates?.[2]?.result as bigint | undefined;
   const wethPeriodFinish2 = gaugeRates?.[3]?.result as bigint | undefined;
-  const isChaoslpActive = chaoslpPeriodFinish !== undefined && Number(chaoslpPeriodFinish) > Date.now() / 1000;
+  const isClankerActive = clankerPeriodFinish !== undefined && Number(clankerPeriodFinish) > Date.now() / 1000;
   const isWethGaugeActive = wethPeriodFinish2 !== undefined && Number(wethPeriodFinish2) > Date.now() / 1000;
 
   // USD-denominated APR using live prices
@@ -89,7 +89,7 @@ export default function StakePage() {
     return (annualRewardUsd / stakedUsd) * 100;
   }
 
-  const chaoslpApr = computeApr(chaoslpRewardRate, null);
+  const clankerApr = computeApr(clankerRewardRate, prices.clankerUsd ?? null);
   const wethApr = computeApr(wethRewardRate, prices.wethUsd);
   const { data: triBalance, refetch: refetchTriBal } = useReadContract({
     address: ADDRESSES.trini, abi: trinityTokenAbi, functionName: "balanceOf",
@@ -198,7 +198,7 @@ export default function StakePage() {
   const hasEarnings =
     (earnedHub !== undefined && (earnedHub as bigint) > 0n) ||
     (earnedWeth !== undefined && (earnedWeth as bigint) > 0n) ||
-    (earnedChaoslp !== undefined && (earnedChaoslp as bigint) > 0n);
+    (earnedClanker !== undefined && (earnedClanker as bigint) > 0n);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -209,7 +209,7 @@ export default function StakePage() {
           <div>
             <h1 className="text-2xl font-bold text-white">Stake TRINI</h1>
             <p className="text-sm text-[#8892a4]">
-              Stake TRINI, earn WETH + $CHAOSLP from pool fees (when funded by multisig).
+              Stake TRINI, earn WETH + CLANKER from pool fees (when funded by multisig).
             </p>
           </div>
 
@@ -221,8 +221,8 @@ export default function StakePage() {
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
               <div className="text-[#8892a4] text-xs">Rewards</div>
-              <div className={`font-mono ${(isChaoslpActive || isWethGaugeActive) ? "text-[#4ecca3]" : "text-[#8892a4]"}`}>
-                {isChaoslpActive || isWethGaugeActive ? "Active" : "Not yet funded"}
+              <div className={`font-mono ${(isClankerActive || isWethGaugeActive) ? "text-[#4ecca3]" : "text-[#8892a4]"}`}>
+                {isClankerActive || isWethGaugeActive ? "Active" : "Not yet funded"}
               </div>
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460]">
@@ -234,8 +234,8 @@ export default function StakePage() {
               <div className="text-[#4e9af0] font-mono">{fmt(earnedWeth as bigint | undefined, 18, 6)}</div>
             </div>
             <div className="bg-[#0d1117] rounded-lg p-3 border border-[#0f3460] col-span-2">
-              <div className="text-[#8892a4] text-xs">Earned $CHAOSLP</div>
-              <div className="text-[#e94560] font-mono">{fmt(earnedChaoslp as bigint | undefined, 18, 2)}</div>
+              <div className="text-[#8892a4] text-xs">Earned CLANKER</div>
+              <div className="text-[#e94560] font-mono">{fmt(earnedClanker as bigint | undefined, 18, 2)}</div>
             </div>
           </div>
 
@@ -254,10 +254,10 @@ export default function StakePage() {
               </span>
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-sm text-[#e94560]">$CHAOSLP</span>
+              <span className="text-sm text-[#e94560]">CLANKER</span>
               <span className="text-sm font-mono">
-                {isChaoslpActive && chaoslpApr !== null
-                  ? <span className="text-[#4ecca3]">{chaoslpApr.toFixed(1)}%</span>
+                {isClankerActive && clankerApr !== null
+                  ? <span className="text-[#4ecca3]">{clankerApr.toFixed(1)}%</span>
                   : <span className="text-[#8892a4]">Awaiting funding</span>}
               </span>
             </div>

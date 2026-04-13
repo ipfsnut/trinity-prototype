@@ -123,7 +123,8 @@ export function TradePanel() {
     }).then((result) => {
       setQuoteOut(result.result[0]);
       setQuoteFailed(false);
-    }).catch(() => {
+    }).catch((e) => {
+      console.error("Quote failed:", e?.shortMessage || e?.message || e);
       setQuoteOut(null);
       setQuoteFailed(true);
     });
@@ -142,7 +143,7 @@ export function TradePanel() {
         return;
       }
 
-      // Step 1: Check + approve token to Permit2
+      // Step 1: Check + approve token to Permit2 (exact amount)
       {
         const permit2Allowance = await publicClient.readContract({
           address: spendToken, abi: erc20Abi, functionName: "allowance",
@@ -150,29 +151,29 @@ export function TradePanel() {
         });
 
         if ((permit2Allowance as bigint) < parsedAmount) {
-          setLoading("Approving token...");
+          setLoading(`Approving ${amount} ${spendSymbol} to Permit2...`);
           const hash = await walletClient.writeContract({
             address: spendToken, abi: erc20Abi, functionName: "approve",
-            args: [ADDRESSES.permit2, BigInt("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")],
+            args: [ADDRESSES.permit2, parsedAmount],
             chain: walletClient.chain, account: walletClient.account,
           });
           await publicClient.waitForTransactionReceipt({ hash });
         }
       }
 
-      // Step 2: Check + approve Permit2 -> Universal Router
+      // Step 2: Check + approve Permit2 -> Universal Router (exact amount, 1hr expiry)
       const [routerAllowance] = await publicClient.readContract({
         address: ADDRESSES.permit2, abi: PERMIT2_ABI, functionName: "allowance",
         args: [address, spendToken, ADDRESSES.universalRouter],
       });
 
       if (routerAllowance < parsedAmount) {
-        setLoading("Setting Permit2 allowance...");
+        setLoading(`Approving ${amount} ${spendSymbol} for this trade...`);
         const hash = await walletClient.writeContract({
           address: ADDRESSES.permit2, abi: PERMIT2_ABI, functionName: "approve",
           args: [spendToken, ADDRESSES.universalRouter,
-            BigInt("0xffffffffffffffffffffffffffffffff"), // uint160 max
-            Math.floor(Date.now() / 1000) + 86400 * 30], // 30 day expiry
+            parsedAmount,
+            Math.floor(Date.now() / 1000) + 3600], // 1 hour expiry
           chain: walletClient.chain, account: walletClient.account,
         });
         await publicClient.waitForTransactionReceipt({ hash });

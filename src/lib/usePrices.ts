@@ -8,6 +8,7 @@ import { ADDRESSES, POOLS, QUOTER_ABI, isTriCurrency0 } from "./contracts";
 export interface Prices {
   triniUsd: number | null;
   wethUsd: number | null;
+  clankerUsd: number | null;
 }
 
 async function quoteTriniToAsset(
@@ -34,6 +35,7 @@ export function usePrices(): Prices {
   const [prices, setPrices] = useState<Prices>({
     triniUsd: null,
     wethUsd: null,
+    clankerUsd: null,
   });
 
   useEffect(() => {
@@ -54,22 +56,41 @@ export function usePrices(): Prices {
       }
 
       if (triniUsd === null || triniUsd === 0) {
-        setPrices({ triniUsd, wethUsd });
+        setPrices({ triniUsd, wethUsd, clankerUsd: null });
         return;
       }
 
-      // Step 2: WETH price (independent)
+      // Step 2: WETH price — try on-chain quote, fall back to CoinGecko
       try {
         const wethOut = await quoteTriniToAsset(client, POOLS.eth, quoteAmount);
         const wethOutNum = Number(formatUnits(wethOut, 18));
         if (wethOutNum > 0) {
           wethUsd = (1_000_000 * triniUsd) / wethOutNum;
         }
-      } catch (e) {
-        console.error("[usePrices] TRINI/WETH quote failed:", e);
+      } catch {
+        // Quoter failed (public RPC timeout) — use CoinGecko as fallback
+        try {
+          const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+          const data = await res.json();
+          if (data?.ethereum?.usd) wethUsd = data.ethereum.usd;
+        } catch {
+          console.error("[usePrices] Both WETH price sources failed");
+        }
       }
 
-      setPrices({ triniUsd, wethUsd });
+      // Step 3: CLANKER price
+      let clankerUsd: number | null = null;
+      try {
+        const clkOut = await quoteTriniToAsset(client, POOLS.clanker, quoteAmount);
+        const clkOutNum = Number(formatUnits(clkOut, 18));
+        if (clkOutNum > 0) {
+          clankerUsd = (1_000_000 * triniUsd) / clkOutNum;
+        }
+      } catch (e) {
+        console.error("[usePrices] TRINI/Clanker quote failed:", e);
+      }
+
+      setPrices({ triniUsd, wethUsd, clankerUsd });
     }
 
     fetchPrices();

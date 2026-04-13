@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Trinity V6: Uniswap V4 Hook Bonding Curve Protocol</title>
+<title>Trinity V8: Continuous-Position Bonding Curve Protocol</title>
 <style>
   :root {
     --bg: #1a1a2e;
@@ -12,8 +12,8 @@
     --text: #e0e0e0;
     --muted: #8892a4;
     --accent: #e94560;
-    --accent2: #533483;
     --green: #4ecca3;
+    --blue: #4e9af0;
     --code-bg: #0d1117;
   }
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -22,378 +22,105 @@
     background: var(--bg);
     color: var(--text);
     line-height: 1.7;
-    padding: 0;
   }
-  .container {
-    max-width: 860px;
-    margin: 0 auto;
-    padding: 60px 40px;
-  }
-  h1 {
-    font-size: 2.4em;
-    font-weight: 700;
-    color: #fff;
-    margin-bottom: 8px;
-    letter-spacing: -0.02em;
-    border-bottom: 3px solid var(--accent);
-    padding-bottom: 16px;
-  }
-  h2 {
-    font-size: 1.6em;
-    font-weight: 600;
-    color: #fff;
-    margin-top: 48px;
-    margin-bottom: 16px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid var(--border);
-  }
-  h3 {
-    font-size: 1.2em;
-    font-weight: 600;
-    color: var(--green);
-    margin-top: 32px;
-    margin-bottom: 12px;
-  }
-  h4 {
-    font-size: 1.05em;
-    font-weight: 600;
-    color: var(--muted);
-    margin-top: 24px;
-    margin-bottom: 8px;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-  }
-  p { margin-bottom: 4px; color: var(--text); }
-  strong { color: #fff; font-weight: 600; }
-  em { color: var(--green); font-style: italic; }
-  hr { border: none; border-top: 1px solid var(--border); margin: 40px 0; }
-  pre {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 20px;
-    overflow-x: auto;
-    margin: 16px 0;
-    font-size: 0.85em;
-    line-height: 1.5;
-  }
-  pre code {
-    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-    color: #c9d1d9;
-  }
-  code.inline {
-    background: var(--code-bg);
-    border: 1px solid var(--border);
-    border-radius: 4px;
-    padding: 2px 6px;
-    font-family: 'JetBrains Mono', 'Fira Code', 'SF Mono', monospace;
-    font-size: 0.88em;
-    color: var(--accent);
-  }
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 16px 0;
-    font-size: 0.92em;
-  }
-  th {
-    background: var(--surface);
-    color: var(--green);
-    font-weight: 600;
-    text-align: left;
-    padding: 10px 14px;
-    border-bottom: 2px solid var(--border);
-    white-space: nowrap;
-  }
-  td {
-    padding: 8px 14px;
-    border-bottom: 1px solid rgba(15, 52, 96, 0.5);
-    vertical-align: top;
-  }
-  tr:hover td { background: rgba(22, 33, 62, 0.5); }
-  .list-item { padding: 3px 0 3px 8px; color: var(--text); }
-  .warning {
-    background: #1a0a0a;
-    border: 1px solid rgba(233, 69, 96, 0.3);
-    border-radius: 8px;
-    padding: 16px 20px;
-    margin: 16px 0;
-    color: rgba(233, 69, 96, 0.8);
-  }
+  .container { max-width: 860px; margin: 0 auto; padding: 60px 40px; }
+  h1 { font-size: 2rem; margin-bottom: 0.5rem; }
+  h2 { font-size: 1.4rem; margin-top: 2.5rem; margin-bottom: 1rem; color: var(--green); }
+  p { margin-bottom: 1rem; }
+  .subtitle { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; }
+  code { background: var(--code-bg); padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; }
+  table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+  th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { color: var(--muted); font-weight: 500; font-size: 0.8rem; text-transform: uppercase; }
+  td code { font-size: 0.75rem; }
+  ul { margin: 0 0 1rem 1.5rem; }
+  a { color: var(--blue); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .warning { background: #1a0a0a; border: 1px solid rgba(233,69,96,0.3); border-radius: 8px; padding: 16px; margin: 1.5rem 0; }
   .warning strong { color: var(--accent); }
-  br { display: block; content: ""; margin: 4px 0; }
-  @media (max-width: 600px) {
-    .container { padding: 24px 16px; }
-    h1 { font-size: 1.8em; }
-    table { font-size: 0.82em; }
-    pre { padding: 12px; font-size: 0.78em; }
-  }
+  .warning p { color: rgba(233,69,96,0.8); margin: 0; font-size: 0.85rem; }
+  .back { display: inline-block; margin-bottom: 2rem; color: var(--muted); font-size: 0.85rem; }
 </style>
 </head>
 <body>
 <div class="container">
-<h1>Trinity V6: Uniswap V4 Hook Bonding Curve Protocol</h1>
-<br>
+  <a href="/" class="back">&larr; Back to Trade</a>
+  <h1>Trinity V8 Protocol</h1>
+  <p class="subtitle">Continuous-position bonding curves on Uniswap V4 &mdash; deployed on Base</p>
 
-<div class="warning">
-<strong>Trade at your own risk.</strong> This is experimental DeFi. The contracts have not been independently audited &mdash; only reviewed by the creator and his computer, and he&rsquo;s hardly impartial. Don&rsquo;t put in more than you&rsquo;re comfortable losing entirely.
-</div>
+  <div class="warning">
+    <strong>Trade at your own risk.</strong>
+    <p>These contracts have not been independently audited. Don't put in more than you're comfortable losing.</p>
+  </div>
 
-<br>
-<h2>Overview</h2>
-<br>
-<p>Trinity is a bonding curve protocol implemented as a <strong>Uniswap V4 hook</strong>. A single hook contract serves three independent liquidity pools (USDC, WETH, $CHAOSLP), each with its own curve shape. The hook manages concentrated LP positions across price bands that approximate a bonding curve.</p>
-<br>
-<p>Because swaps route through Uniswap V4&rsquo;s PoolManager and Universal Router, Trinity pools are natively visible to the entire ecosystem: aggregators, bots, GeckoTerminal, block explorers. Trading fees are asymmetric: buy-side fees go to the multisig, sell-side fees burn $TRINI.</p>
-<br>
-<hr>
-<br>
-<h2>Architecture</h2>
-<br>
-<h3>Token: $TRINI</h3>
-<br>
-<div class="list-item">&#8226; <strong>Total Supply</strong>: 1,000,000,000 (1B)</div>
-<div class="list-item">&#8226; <strong>Decimals</strong>: 18</div>
-<div class="list-item">&#8226; <strong>Type</strong>: Standard ERC-20 (OpenZeppelin, non-upgradeable)</div>
-<div class="list-item">&#8226; <strong>Ticker</strong>: TRINI</div>
-<div class="list-item">&#8226; <strong>Starting price</strong>: $0.000025 / TRINI ($25K FDV)</div>
-<div class="list-item">&#8226; <strong>Chain</strong>: Base (L2 &mdash; gas is ~$0.005 per swap)</div>
-<br>
-<h3>Supply Distribution</h3>
-<br>
-<table><thead><tr>
-<th>Allocation</th>
-<th>Amount</th>
-<th>%</th>
-<th>Purpose</th>
-</tr></thead><tbody>
-<tr><td>TRINI/USDC Pool</td><td>450,000,000</td><td>45%</td><td>Deep anchor &mdash; stable pricing</td></tr>
-<tr><td>TRINI/WETH Pool</td><td>297,000,000</td><td>29.7%</td><td>ETH relay &mdash; moderate depth</td></tr>
-<tr><td>TRINI/$CHAOSLP Pool</td><td>153,000,000</td><td>15.3%</td><td>Volatility engine &mdash; thin, steep</td></tr>
-<tr><td>Treasury (Multisig)</td><td>100,000,000</td><td>10%</td><td>Team, partnerships, reserves</td></tr>
-</tbody></table>
-<br>
-<h3>V6 Hook Architecture</h3>
-<br>
-<p>One hook contract, three pools. The AMM runs normally &mdash; the hook manages WHERE liquidity sits (concentrated LP bands) and collects fees via <code class="inline">beforeSwap</code>. LP is seeded one-sided (TRINI only, Clanker pattern) and rebalances across bands as price moves.</p>
-<br>
-<pre><code>
-                    +-----------------------+
-                    |    POOL MANAGER       |
-                    |  (Uniswap V4 core)    |
-                    +----------+------------+
-                               |
-                    +----------v------------+
-                    |   TRINITY HOOK V6     |
-                    |  beforeSwap: 1% fee   |
-                    |  afterSwap: rebalance  |
-                    |  LP bands per pool    |
-                    +--+--------+--------+--+
-                       |        |        |
-              +--------v--+ +---v------+ +--v-----------+
-              | TRINI/USDC | | TRINI/WETH| | TRINI/$CHAOSLP|
-              | 450M TRINI | | 297M TRINI| | 153M TRINI   |
-              | 16 bands   | | 15 bands  | | 15 bands     |
-              | Deep/flat  | | Moderate  | | Thin/steep   |
-              +-----------+ +----------+ +--------------+
-                       |        |        |
-                       v        v        v
-                  Buy fees --> Multisig
-                  Sell fees --> Burn to 0xdead
-</code></pre>
-<br>
-<p>Each pool has its own band schedule and curve shape. The pools share TRINI as currency0 but have independent LP positions, active bands, and fee recipients.</p>
-<br>
+  <h2>Architecture</h2>
+  <p>Trinity V8 replaces the discrete-band hooks (V6/V7) with a <strong>single continuous concentrated liquidity position per pool</strong>. No bands, no transitions, no afterSwap rebalancing. Each pool is managed by its own <code>TrinityHookV8</code> instance.</p>
+  <ul>
+    <li>One continuous CL position spanning a configured price range ($25k&ndash;$100M FDV)</li>
+    <li>External LP permanently blocked &mdash; only the hook can mint into the pool</li>
+    <li>Fees extracted <em>before</em> the swap via <code>BeforeSwapDelta</code></li>
+    <li>No <code>afterSwap</code> logic &mdash; saves ~3000 gas per swap vs V6/V7</li>
+    <li>Fully parameterized: token, fee rate, range, and owner are constructor arguments</li>
+  </ul>
 
-<h3>Deployed Contracts (Base Mainnet)</h3>
-<br>
-<table><thead><tr>
-<th>Contract</th>
-<th>Address</th>
-</tr></thead><tbody>
-<tr><td>TRINI Token</td><td><a href="https://basescan.org/address/0x17790eFD4896A981Db1d9607A301BC4F7407F3dF" style="color:var(--green)"><code class="inline">0x17790eFD4896A981Db1d9607A301BC4F7407F3dF</code></a></td></tr>
-<tr><td>TrinityHookV6</td><td><a href="https://basescan.org/address/0xe89a658e4bec91caea242aD032280a5D3015C8c8" style="color:var(--green)"><code class="inline">0xe89a658e4bec91caea242aD032280a5D3015C8c8</code></a></td></tr>
-<tr><td>Staking Hub</td><td><a href="https://basescan.org/address/0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6" style="color:var(--green)"><code class="inline">0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6</code></a></td></tr>
-<tr><td>WETH Gauge</td><td><a href="https://basescan.org/address/0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2" style="color:var(--green)"><code class="inline">0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2</code></a></td></tr>
-<tr><td>Multisig (Owner)</td><td><a href="https://basescan.org/address/0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0" style="color:var(--green)"><code class="inline">0xb7DD467A573809218aAE30EB2c60e8AE3a9198a0</code></a></td></tr>
-</tbody></table>
-<br>
-<p>All contracts verified on Basescan. Source: <a href="https://github.com/ipfsnut/trinity-prototype" style="color:var(--green)">github.com/ipfsnut/trinity-prototype</a></p>
-<br>
-<p>The hook address encodes V4 permissions in its lower bits: <code class="inline">BEFORE_ADD_LIQUIDITY</code>, <code class="inline">BEFORE_SWAP</code>, <code class="inline">BEFORE_SWAP_RETURNS_DELTA</code>, <code class="inline">AFTER_SWAP</code>. Deployed via CREATE2 address mining.</p>
-<br>
-<hr>
-<br>
-<h2>LP Band Mechanics</h2>
-<br>
-<h3>How It Works</h3>
-<br>
-<p>Instead of a formula-based bonding curve, V6 uses <strong>discrete LP bands</strong> &mdash; concentrated Uniswap V4 positions at different tick ranges. Each band covers a price segment. Together they approximate a bonding curve with variable steepness.</p>
-<br>
-<p>The hook owns all LP positions. External LP is permanently blocked via <code class="inline">beforeAddLiquidity</code>. Only the hook can add or remove liquidity.</p>
-<br>
-<div class="list-item">&#8226; <strong>One active band at a time</strong> per pool</div>
-<div class="list-item">&#8226; <strong>afterSwap</strong> checks if price exited the current band and rebalances (up to 5 transitions per swap)</div>
-<div class="list-item">&#8226; Band widths vary: narrow at the start (steep price discovery), wider later (deep, stable)</div>
-<div class="list-item">&#8226; The curves never graduate &mdash; they are permanent infrastructure</div>
-<br>
+  <h2>Fee Model</h2>
+  <table>
+    <tr><th>Direction</th><th>Fee taken from</th><th>Fee goes to</th></tr>
+    <tr><td><strong>Buy</strong> (quote &rarr; TRINI)</td><td>Quote input</td><td>Multisig treasury</td></tr>
+    <tr><td><strong>Sell</strong> (TRINI &rarr; quote)</td><td>TRINI input</td><td>Burned to <code>0xdead</code></td></tr>
+  </table>
 
-<h3>Band Schedules</h3>
-<br>
-<p>Each pool decelerates at a different rate after a shared steep ignition band:</p>
-<br>
-<table><thead><tr>
-<th>Pool</th>
-<th>Bands</th>
-<th>TRINI</th>
-<th>Character</th>
-<th>Total Curve</th>
-</tr></thead><tbody>
-<tr><td>USDC</td><td>16</td><td>450M</td><td>Fast decel &rarr; deep anchor</td><td>327,612x</td></tr>
-<tr><td>WETH</td><td>15</td><td>297M</td><td>Medium decel &rarr; relay</td><td>12,154x</td></tr>
-<tr><td>$CHAOSLP</td><td>15</td><td>153M</td><td>Slow decel &rarr; volatility engine</td><td>1,045x</td></tr>
-</tbody></table>
-<br>
-<p>The USDC curve is 327,612x deep &mdash; it effectively never finishes. ChaosLP is 1,045x &mdash; theoretically reachable, but its volatile underlying means the price oscillates rather than climbing steadily.</p>
-<br>
-<hr>
-<br>
-<h2>Fee Structure</h2>
-<br>
-<h3>1% Flat Trading Fee</h3>
-<br>
-<p>Every swap across all three pools incurs a <strong>1% fee on the input amount</strong>. Extracted in <code class="inline">beforeSwap</code> before the AMM runs.</p>
-<br>
-<h3>On Buys: 1% in quote asset &rarr; Multisig</h3>
-<br>
-<pre><code>User buys with 1000 USDC:
-  - 10 USDC (1%) --> multisig (fee recipient)
-  - 990 USDC enters the AMM</code></pre>
-<br>
-<h3>On Sells: 1% in $TRINI &rarr; Burned</h3>
-<br>
-<pre><code>User sells 10,000 TRINI for ETH:
-  - 100 TRINI (1%) --> 0x000...dead (burned permanently)
-  - 9,900 TRINI enters the AMM
-  - User receives ETH output</code></pre>
-<br>
-<p><strong>Every sell is deflationary. No exceptions. All three pools burn on sells.</strong></p>
-<br>
-<p>exactOutput swaps are blocked &mdash; the hook reverts on <code class="inline">amountSpecified &gt;= 0</code>. This closes a fee bypass vector found in V5.</p>
-<br>
-<hr>
-<br>
-<h2>The Arb Flywheel</h2>
-<br>
-<p>Because the three curves have different shapes, TRINI has different prices on different pools at any given time. Arbitrage bots trade the spread:</p>
-<br>
-<pre><code>1. Bot buys TRINI on the cheap pool (e.g., USDC -- deep, stable)
-2. Bot sells TRINI on the expensive pool (e.g., ChaosLP -- just spiked)
-3. Each leg pays 1% fee (2% round-trip)
-4. Buy fee --> multisig. Sell fee --> burned.
-5. Spread narrows -- until the next trade reopens it</code></pre>
-<br>
-<p>ChaosLP is the engine: thin depth (153M) + slow deceleration means every trade moves the price significantly. Its micro-cap underlying (~$2,600 MC) means constant external price shocks that create new dislocations.</p>
-<br>
-<p>USDC is the anchor: deep depth (450M) + fast deceleration means organic buys barely move the price. It provides the stable reference for arb bots.</p>
-<br>
-<p>The spread never fully closes because every arb cycle costs ~2% in fees. Bots stop when the spread falls below ~2%, then the next ChaosLP price move reopens the gap.</p>
-<br>
-<hr>
-<br>
-<h2>Swaps (V4 Internals)</h2>
-<br>
-<p>Swaps go through Uniswap&rsquo;s <strong>Universal Router</strong> with the standard V4 swap encoding (same as Clanker). No custom router needed &mdash; the hook intercepts via callbacks.</p>
-<br>
-<h3>Hook Permissions</h3>
-<br>
-<table><thead><tr>
-<th>Permission</th>
-<th>Purpose</th>
-</tr></thead><tbody>
-<tr><td>BEFORE_ADD_LIQUIDITY</td><td>Blocks external LP permanently. Only the hook manages positions.</td></tr>
-<tr><td>BEFORE_SWAP</td><td>Extracts 1% fee before the AMM runs</td></tr>
-<tr><td>BEFORE_SWAP_RETURNS_DELTA</td><td>Returns fee delta so the AMM sees reduced input</td></tr>
-<tr><td>AFTER_SWAP</td><td>Rebalances LP bands after price moves</td></tr>
-</tbody></table>
-<br>
-<p>For the WETH pool, native ETH is accepted: the Universal Router wraps ETH to WETH via <code class="inline">WRAP_ETH</code> command before the V4 swap.</p>
-<br>
-<hr>
-<br>
-<h2>Staking</h2>
-<br>
-<p>Stake TRINI to earn rewards from pool fees. Uses the ChaosLPHub + RewardGauge pattern.</p>
-<br>
-<div class="list-item">&#8226; <strong>Hub</strong>: Stake TRINI, earn TRINI (hub rewards, funded by multisig)</div>
-<div class="list-item">&#8226; <strong>WETH Gauge</strong>: Earn WETH (from ETH pool buy fees, forwarded by multisig)</div>
-<br>
-<p>Multisig collects buy fees from all three pools, then distributes to gauges via <code class="inline">notifyRewardAmount()</code>. Staking locks TRINI, reducing circulating supply.</p>
-<br>
-<hr>
-<br>
-<h2>Governance &amp; Trust</h2>
-<br>
-<p>All contracts are owned by the multisig (<code class="inline">0xb7DD...8a0</code>). The multisig can:</p>
-<br>
-<div class="list-item">&#8226; <strong>emergencyWithdrawLP</strong> &mdash; recover the hook&rsquo;s LP positions</div>
-<div class="list-item">&#8226; <strong>updateFeeRecipient</strong> &mdash; redirect fee collection</div>
-<div class="list-item">&#8226; <strong>withdrawTokens</strong> &mdash; recover ERC20s held by the hook</div>
-<div class="list-item">&#8226; <strong>Fund staking gauges</strong> &mdash; distribute rewards</div>
-<br>
-<p>The multisig <strong>cannot</strong> change the fee rate (hardcoded 1%), the burn mechanism, or the band configurations (set at registration).</p>
-<br>
-<h3>Immutability</h3>
-<br>
-<table><thead><tr>
-<th>Parameter</th>
-<th>Mutable?</th>
-</tr></thead><tbody>
-<tr><td>Fee rate (1%)</td><td><strong>No</strong> &mdash; hardcoded</td></tr>
-<tr><td>Burn on sells</td><td><strong>No</strong> &mdash; hardcoded</td></tr>
-<tr><td>Band configuration per pool</td><td><strong>No</strong> &mdash; set at registerPool</td></tr>
-<tr><td>External LP block</td><td><strong>No</strong> &mdash; permanent</td></tr>
-<tr><td>Hook address &amp; permissions</td><td><strong>No</strong> &mdash; V4 hooks are immutable</td></tr>
-<tr><td>Fee recipient per pool</td><td><strong>Yes</strong> &mdash; owner only</td></tr>
-<tr><td>LP positions</td><td><strong>Yes</strong> &mdash; owner can emergency withdraw</td></tr>
-</tbody></table>
-<br>
-<hr>
-<br>
-<h2>Risk Disclosure</h2>
-<br>
-<div class="warning">
-<strong>This is a prototype.</strong> It is experimental DeFi built by a small team. The contracts have been through internal review (two audit cycles, six passes) but have <strong>not been independently audited by a third party</strong>. Unknown bugs may exist. Don&rsquo;t put in more than you&rsquo;re comfortable losing entirely.
-</div>
-<br>
-<table><thead><tr>
-<th>Risk</th>
-<th>Severity</th>
-<th>Mitigation</th>
-</tr></thead><tbody>
-<tr><td>Smart contract bug</td><td>Critical</td><td>Internal audit (6 passes), 18 tests passing, all contracts verified</td></tr>
-<tr><td>Multisig compromise</td><td>High</td><td>Can drain hook LP, not user wallets. Timelock can be added later.</td></tr>
-<tr><td>Low volume / no arb</td><td>Medium</td><td>Three curve shapes create persistent dislocations. ChaosLP volatility feeds the flywheel.</td></tr>
-<tr><td>$CHAOSLP goes to zero</td><td>Low impact</td><td>That pool dies, 2/3 of liquidity unaffected</td></tr>
-<tr><td>MEV / sandwich</td><td>Low</td><td>1% fee + burn = ~3% attacker cost per round-trip</td></tr>
-<tr><td>Cross-pool TRINI leakage</td><td>Accepted</td><td>Leftover TRINI auto-redistributes across pools. Quote-side tokens never cross-contaminate.</td></tr>
-</tbody></table>
-<br>
-<hr>
-<br>
-<h2>Summary</h2>
-<br>
-<div class="list-item">&#8226; <strong>Buys</strong>: 1% fee in quote asset &rarr; multisig (WETH pool accepts native ETH)</div>
-<div class="list-item">&#8226; <strong>Sells</strong>: 1% of TRINI &rarr; burned permanently</div>
-<div class="list-item">&#8226; <strong>Arb</strong>: Three different curve shapes create persistent cross-pool dislocations. Every arb burns supply and funds the protocol.</div>
-<div class="list-item">&#8226; <strong>Staking</strong>: Stake TRINI, earn WETH from pool fees</div>
-<div class="list-item">&#8226; <strong>Permanent</strong>: No graduation. Curves run forever. Fees collect forever.</div>
-<br>
-<p style="margin-top:32px; text-align:center; color:var(--muted); font-size:0.85em;">
-Built by <a href="https://epicdylan.com" style="color:var(--green)">epicdylan</a> &bull;
-<a href="https://github.com/ipfsnut/trinity-prototype" style="color:var(--green)">GitHub</a> &bull;
-All contracts <a href="https://basescan.org/address/0xe89a658e4bec91caea242aD032280a5D3015C8c8" style="color:var(--green)">verified on Basescan</a>
-</p>
+  <h2>Pool Architecture</h2>
+  <p>$TRINI is deployed across 3 pools with 100% of supply committed:</p>
+  <table>
+    <tr><th>Pool</th><th>Allocation</th><th>Fee</th><th>Hook</th></tr>
+    <tr><td>TRINI / USDC</td><td>70%</td><td>1%</td><td><a href="https://basescan.org/address/0x995d479bdd10686BDfeC8E8ba5f86357211bC888"><code>0x995d47...C888</code></a></td></tr>
+    <tr><td>TRINI / WETH</td><td>10%</td><td>2%</td><td><a href="https://basescan.org/address/0x089d5FFe033aF0726aAbfAf2276F269D4Fe78888"><code>0x089d5F...8888</code></a></td></tr>
+    <tr><td>TRINI / Clanker</td><td>20%</td><td>2%</td><td><a href="https://basescan.org/address/0x95911f10849fAB05fdf8d42599B34dC8A17b8888"><code>0x95911f...8888</code></a></td></tr>
+  </table>
+
+  <h2>Arb Surface</h2>
+  <p>3 pools across 3 quote assets create pairwise arbitrage surfaces. When any external asset moves, arb bots equalize pool prices &mdash; paying fees and burning TRINI in the process. Simulations showed 3&ndash;6% annual yield on seed capital in normal conditions, doubling during high-volatility periods.</p>
+
+  <h2>Hook Permission Bits</h2>
+  <p>All V8 hooks use flags <code>0x888</code> (2184):</p>
+  <table>
+    <tr><th>Flag</th><th>Bit</th><th>Purpose</th></tr>
+    <tr><td><code>BEFORE_ADD_LIQUIDITY</code></td><td>1 &lt;&lt; 11</td><td>Block external LP</td></tr>
+    <tr><td><code>BEFORE_SWAP</code></td><td>1 &lt;&lt; 7</td><td>Fee extraction</td></tr>
+    <tr><td><code>BEFORE_SWAP_RETURNS_DELTA</code></td><td>1 &lt;&lt; 3</td><td>Modify swap input for fee</td></tr>
+  </table>
+
+  <h2>Owner Functions</h2>
+  <table>
+    <tr><th>Function</th><th>Description</th></tr>
+    <tr><td><code>registerPool(key, tickLower, tickUpper, feeRecipient)</code></td><td>One-time pool setup</td></tr>
+    <tr><td><code>addLiquidity(key)</code></td><td>Mints LP from hook's token balances</td></tr>
+    <tr><td><code>emergencyWithdraw(key)</code></td><td>Removes all LP to owner</td></tr>
+    <tr><td><code>withdrawTokens(token, amount, to)</code></td><td>Sweeps ERC20 from hook</td></tr>
+    <tr><td><code>updateFeeRecipient(newRecipient)</code></td><td>Changes fee destination</td></tr>
+  </table>
+
+  <h2>Deployed Contracts</h2>
+  <table>
+    <tr><th>Contract</th><th>Address</th></tr>
+    <tr><td>TRINI Token</td><td><a href="https://basescan.org/token/0x17790eFD4896A981Db1d9607A301BC4F7407F3dF"><code>0x17790eFD...F3dF</code></a></td></tr>
+    <tr><td>TRINI / USDC (1%)</td><td><a href="https://basescan.org/address/0x995d479bdd10686BDfeC8E8ba5f86357211bC888"><code>0x995d479b...C888</code></a></td></tr>
+    <tr><td>TRINI / WETH (2%)</td><td><a href="https://basescan.org/address/0x089d5FFe033aF0726aAbfAf2276F269D4Fe78888"><code>0x089d5FFe...8888</code></a></td></tr>
+    <tr><td>TRINI / Clanker (2%)</td><td><a href="https://basescan.org/address/0x95911f10849fAB05fdf8d42599B34dC8A17b8888"><code>0x95911f10...8888</code></a></td></tr>
+    <tr><td>Staking Hub</td><td><a href="https://basescan.org/address/0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6"><code>0x76F63BB9...77d6</code></a></td></tr>
+    <tr><td>Owner (TRINI Safe)</td><td><a href="https://basescan.org/address/0x48D6c44EAE1DE124316Fcfd3Ed09A6d57D8FFdb2"><code>0x48D6c44E...Fdb2</code></a></td></tr>
+    <tr><td>V4 PoolManager</td><td><a href="https://basescan.org/address/0x498581fF718922c3f8e6A244956aF099B2652b2b"><code>0x498581fF...2b2b</code></a></td></tr>
+  </table>
+
+  <h2>V6/V7 &rarr; V8 Migration</h2>
+  <p>V8 replaced the discrete-band architecture (V6/V7) which suffered from structural value leakage of ~50&ndash;65% on meaningful trades. All V6/V7 hooks have been drained. The TRINI ERC20 token and staking hub are unchanged.</p>
+
+  <p style="margin-top: 2rem; color: var(--muted); font-size: 0.85rem;">
+    Built by <a href="https://epicdylan.com">epicdylan</a> &middot;
+    <a href="https://github.com/ipfsnut/trinity-prototype">Source</a> &middot;
+    <a href="/">Trade $TRINI</a>
+  </p>
 </div>
 </body>
 </html>
