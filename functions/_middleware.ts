@@ -194,7 +194,11 @@ function buildSnap(data: SnapData) {
         },
         "swap-btn": {
           type: "button", props: { label: "Trade TRINI", variant: "primary" },
-          on: { press: { action: "open_url", params: { target: `${SITE_URL}/trade/trini` } } },
+          // Invoke Farcaster's native swap widget. Routes through 0x; works
+          // for V9 hooks once 0x has integrated them (confirmed live 2026-05-20).
+          on: { press: { action: "swap_token", params: {
+            buyToken: `eip155:8453/erc20:${ADDRESSES.trini}`,
+          } } },
         },
         "stake-btn": {
           type: "button", props: { label: "Stake" },
