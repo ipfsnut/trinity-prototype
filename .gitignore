@@ -39,3 +39,13 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# private working notes — never commit
+content/private/
+temp/
+
+# foundry artifacts (we use submodules in lib/; these are build outputs)
+foundry.lock
+cache/
+out/forge/
+broadcast/

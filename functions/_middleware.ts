@@ -7,16 +7,17 @@ const RPCS = [
   "https://mainnet.base.org",
   "https://base-rpc.publicnode.com",
 ];
-const SITE_URL = "https://trinity-prototype.epicdylan.com";
+const SITE_URL = "https://trinity-labs.org";
 
 const ADDRESSES = {
   trini: "0x17790eFD4896A981Db1d9607A301BC4F7407F3dF",
-  hookUsdc: "0xaB1FC05211f2735166Fa6c73de63787F88850888",
-  hookWeth: "0x1bcb924AfA8C00448DAeF20bc05c9E0F4bDbC888",
-  hookClanker: "0x6a59dBa1A0ba5cB868057190dF219Fc55b3dC888",
-  stakingHub: "0x76F63BB9990a1afdB1c426394D3Fc2448FBe77d6",
-  chaoslpGauge: "0xa142dcE717820F0f92E5f89d9aFA7B61A4FA1904",
-  wethGauge: "0x97F6f66d2BD30a87D6C4581390343e9cA02c7ae2",
+  // V9 hooks (dynamic-fee + LP allowlist, deployed 2026-05-14)
+  hookUsdc: "0x68B46b1370FD8e4fB9661a140290aC673bdE9840",
+  hookWeth: "0x3cbcF19c38693552E05C5cd7538F4423A1D49840",
+  hookClanker: "0x0b01B79F7B4084691630CE337AFF20b0f0449840",
+  stakingHub: "0x9952A3941624A00714A58C0a371fba81e8bA819A",
+  clankerGauge: "0x8E9988AACd83220410bF59eF5E2979d02a67EDC1",
+  wethGauge: "0xC5C6eea6929A4Ec8080FE6bBCF3A192169CC5cC8",
   quoter: "0x0d5e0F971ED27FBfF6c2837bf31316121532048D",
   usdc: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
   dead: "0x000000000000000000000000000000000000dEaD",
@@ -59,13 +60,14 @@ function balanceOfData(addr: string): string {
 // ── Quoter calldata (pre-encoded via cast, 1M TRINI input) ───────
 // quoteExactInputSingle(((address,address,uint24,int24,address),bool,uint128,bytes))
 // All quotes: zeroForOne=true (TRINI is currency0 in all pools), exactAmount=1M*1e18
+// fee=0x800000 = LPFeeLibrary.DYNAMIC_FEE_FLAG (V9 dynamic-fee pools)
 
-// V8 quoter calldata — quoteExactInputSingle with 1M TRINI input
-const QUOTE_USDC = "0xaa9d21cb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000017790efd4896a981db1d9607a301bc4f7407f3df000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c8000000000000000000000000ab1fc05211f2735166fa6c73de63787f88850888000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000d3c21bcecceda100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000";
+// V9 quoter calldata — verified live against V9 hooks 2026-05-20
+const QUOTE_USDC = "0xaa9d21cb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000017790efd4896a981db1d9607a301bc4f7407f3df000000000000000000000000833589fcd6edb6e08f4c7c32d4f71b54bda02913000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000c800000000000000000000000068b46b1370fd8e4fb9661a140290ac673bde9840000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000d3c21bcecceda100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000";
 
-const QUOTE_CLK = "0xaa9d21cb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000017790efd4896a981db1d9607a301bc4f7407f3df0000000000000000000000001bc0c42215582d5a085795f4badbac3ff36d1bcb000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c80000000000000000000000006a59dba1a0ba5cb868057190df219fc55b3dc888000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000d3c21bcecceda100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000";
+const QUOTE_CLK = "0xaa9d21cb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000017790efd4896a981db1d9607a301bc4f7407f3df0000000000000000000000001bc0c42215582d5a085795f4badbac3ff36d1bcb000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000c80000000000000000000000000b01b79f7b4084691630ce337aff20b0f0449840000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000d3c21bcecceda100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000";
 
-const QUOTE_WETH = "0xaa9d21cb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000017790efd4896a981db1d9607a301bc4f7407f3df0000000000000000000000004200000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000c80000000000000000000000001bcb924afa8c00448daef20bc05c9e0f4bdbc888000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000d3c21bcecceda100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000";
+const QUOTE_WETH = "0xaa9d21cb000000000000000000000000000000000000000000000000000000000000002000000000000000000000000017790efd4896a981db1d9607a301bc4f7407f3df0000000000000000000000004200000000000000000000000000000000000006000000000000000000000000000000000000000000000000000000000080000000000000000000000000000000000000000000000000000000000000000000c80000000000000000000000003cbcf19c38693552e05c5cd7538f4423a1d49840000000000000000000000000000000000000000000000000000000000000000100000000000000000000000000000000000000000000d3c21bcecceda100000000000000000000000000000000000000000000000000000000000000000001000000000000000000000000000000000000000000000000000000000000000000";
 
 // ── Data fetching ────────────────────────────────────────────────
 
@@ -74,7 +76,7 @@ interface SnapData {
   totalStaked: string;
   stakedPct: string;
   burned: string;
-  chaoslpApr: string;
+  clankerApr: string;
   wethApr: string;
 }
 
@@ -82,13 +84,13 @@ const YEAR_SECS = 365n * 86400n;
 
 async function fetchSnapData(): Promise<SnapData> {
   // Parallel reads
-  const [supplyHex, stakedHex, burnedHex, clpRateHex, clpFinishHex, wethRateHex, wethFinishHex] =
+  const [supplyHex, stakedHex, burnedHex, clkRateHex, clkFinishHex, wethRateHex, wethFinishHex] =
     await Promise.all([
       ethCall(ADDRESSES.trini, "0x18160ddd"),
       ethCall(ADDRESSES.stakingHub, "0x18160ddd"),
       ethCall(ADDRESSES.trini, balanceOfData(ADDRESSES.dead)),
-      ethCall(ADDRESSES.chaoslpGauge, "0x7b0a47ee"),
-      ethCall(ADDRESSES.chaoslpGauge, "0xebe2b12b"),
+      ethCall(ADDRESSES.clankerGauge, "0x7b0a47ee"),
+      ethCall(ADDRESSES.clankerGauge, "0xebe2b12b"),
       ethCall(ADDRESSES.wethGauge, "0x7b0a47ee"),
       ethCall(ADDRESSES.wethGauge, "0xebe2b12b"),
     ]);
@@ -96,14 +98,14 @@ async function fetchSnapData(): Promise<SnapData> {
   const totalSupply = decodeUint256(supplyHex);
   const totalStaked = decodeUint256(stakedHex);
   const burned = decodeUint256(burnedHex);
-  const clpRate = decodeUint256(clpRateHex);
-  const clpFinish = decodeUint256(clpFinishHex);
+  const clkRate = decodeUint256(clkRateHex);
+  const clkFinish = decodeUint256(clkFinishHex);
   const wethRate = decodeUint256(wethRateHex);
   const wethFinish = decodeUint256(wethFinishHex);
 
   // TRINI price: quote 1M TRINI → USDC
   let triniUsd = 0;
-  let chaoslpUsd = 0;
+  let clankerUsd = 0;
   let wethUsd = 0;
 
   try {
@@ -115,8 +117,8 @@ async function fetchSnapData(): Promise<SnapData> {
   if (triniUsd > 0) {
     try {
       const resultHex = await ethCall(ADDRESSES.quoter, QUOTE_CLK);
-      const clpOut = Number(decodeUint256(resultHex)) / 1e18;
-      if (clpOut > 0) chaoslpUsd = (1_000_000 * triniUsd) / clpOut;
+      const clkOut = Number(decodeUint256(resultHex)) / 1e18;
+      if (clkOut > 0) clankerUsd = (1_000_000 * triniUsd) / clkOut;
     } catch {}
 
     try {
@@ -134,10 +136,10 @@ async function fetchSnapData(): Promise<SnapData> {
 
   const now = BigInt(Math.floor(Date.now() / 1000));
 
-  let chaoslpApr = 0;
-  if (clpFinish > now && stakedUsd > 0 && chaoslpUsd > 0) {
-    const annualClp = Number(clpRate * YEAR_SECS) / 1e18;
-    chaoslpApr = (annualClp * chaoslpUsd) / stakedUsd * 100;
+  let clankerApr = 0;
+  if (clkFinish > now && stakedUsd > 0 && clankerUsd > 0) {
+    const annualClk = Number(clkRate * YEAR_SECS) / 1e18;
+    clankerApr = (annualClk * clankerUsd) / stakedUsd * 100;
   }
 
   let wethApr = 0;
@@ -151,7 +153,7 @@ async function fetchSnapData(): Promise<SnapData> {
     totalStaked: stakedNum > 1_000_000 ? `${(stakedNum / 1_000_000).toFixed(2)}M` : `${stakedNum.toFixed(0)}`,
     stakedPct: `${stakedPct.toFixed(1)}%`,
     burned: burnedNum > 1_000_000 ? `${(burnedNum / 1_000_000).toFixed(2)}M` : `${Math.floor(burnedNum).toLocaleString()}`,
-    chaoslpApr: chaoslpApr > 0 ? `${chaoslpApr.toFixed(1)}%` : "—",
+    clankerApr: clankerApr > 0 ? `${clankerApr.toFixed(1)}%` : "—",
     wethApr: wethApr > 0 ? `${wethApr.toFixed(1)}%` : "—",
   };
 }
@@ -183,22 +185,23 @@ function buildSnap(data: SnapData) {
           type: "stack", props: { direction: "horizontal" },
           children: ["clp-apr", "weth-apr"],
         },
-        "clp-apr": { type: "item", props: { title: "$CHAOSLP APR", description: data.chaoslpApr } },
+        "clp-apr": { type: "item", props: { title: "Clanker APR", description: data.clankerApr } },
         "weth-apr": { type: "item", props: { title: "WETH APR", description: data.wethApr } },
         sep2: { type: "separator", props: {} },
         actions: {
           type: "stack", props: { direction: "horizontal", gap: "sm" },
-          children: ["swap-btn", "site-btn"],
+          children: ["swap-btn", "stake-btn", "site-btn"],
         },
         "swap-btn": {
-          type: "button", props: { label: "Buy TRINI", variant: "primary" },
-          on: { press: { action: "swap_token", params: {
-            sellToken: "eip155:8453/erc20:0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
-            buyToken: "eip155:8453/erc20:0x17790eFD4896A981Db1d9607A301BC4F7407F3dF",
-          } } },
+          type: "button", props: { label: "Trade TRINI", variant: "primary" },
+          on: { press: { action: "open_url", params: { target: `${SITE_URL}/trade/trini` } } },
+        },
+        "stake-btn": {
+          type: "button", props: { label: "Stake" },
+          on: { press: { action: "open_url", params: { target: `${SITE_URL}/stake` } } },
         },
         "site-btn": {
-          type: "button", props: { label: "Visit on Web" },
+          type: "button", props: { label: "Website" },
           on: { press: { action: "open_url", params: { target: SITE_URL } } },
         },
       },
@@ -240,7 +243,7 @@ export const onRequest: PagesFunction = async (context) => {
     // Fallback with no live data
     data = {
       triniPrice: "—", totalStaked: "—", stakedPct: "—",
-      burned: "—", chaoslpApr: "—", wethApr: "—",
+      burned: "—", clankerApr: "—", wethApr: "—",
     };
   }
 
