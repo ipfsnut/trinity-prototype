@@ -4,12 +4,15 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node -e \"console.error('\\n\\x1b[31m✘ DEPRECATED CODEBASE — see ./DEPRECATED.md\\x1b[0m\\n\\nThis is no longer the source of truth for trinity-labs.org. Building + deploying from here will overwrite the live Vite site (../trinity-labs-site/).\\n\\nTo build the canonical site:\\n  cd ../trinity-labs-site && npm run build\\n\\nIf you really need the legacy Next build (e.g. to extract historical assets), run:\\n  next build\\n'); process.exit(1)\"",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "reserves": "node script/check-v8-reserves.mjs",
+    "burn": "node script/check-v8-burn.mjs"
   },
   "dependencies": {
     "@farcaster/auth-kit": "0.8.2",
+    "@farcaster/miniapp-sdk": "0.3.0",
     "@farcaster/miniapp-wagmi-connector": "2.0.0",
     "@rainbow-me/rainbowkit": "2.2.10",
     "@safe-global/safe-apps-provider": "0.18.6",
